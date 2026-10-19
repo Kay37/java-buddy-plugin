@@ -36,6 +36,7 @@ fun pluralize(count: Int, singular: String, plural: String = "${singular}s"): St
 object JavaBuddySettings {
     private const val ERROR_BUBBLES = "javaBuddy.errorBubbles"
     private const val CRASH_POPUPS = "javaBuddy.crashPopups"
+    private const val CONCEPT_HOVER = "javaBuddy.conceptHover"
 
     /** Plain-English bubbles under lines with a red error. */
     var errorBubbles: Boolean
@@ -46,4 +47,9 @@ object JavaBuddySettings {
     var crashPopups: Boolean
         get() = PropertiesComponent.getInstance().getBoolean(CRASH_POPUPS, true)
         set(value) = PropertiesComponent.getInstance().setValue(CRASH_POPUPS, value, true)
+
+    /** A Concept Card popup when the mouse rests on a Java word like static. */
+    var conceptHover: Boolean
+        get() = PropertiesComponent.getInstance().getBoolean(CONCEPT_HOVER, true)
+        set(value) = PropertiesComponent.getInstance().setValue(CONCEPT_HOVER, value, true)
 }

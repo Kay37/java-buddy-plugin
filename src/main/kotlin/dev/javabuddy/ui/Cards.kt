@@ -37,6 +37,8 @@ object BuddyColors {
     val CRASH_BACKGROUND = JBColor(Color(0xFDECEC), Color(0x3A2626))
     val GOOD_ACCENT = JBColor(Color(0x2E9E4F), Color(0x5FB865))
     val GOOD_BACKGROUND = JBColor(Color(0xEAF7EE), Color(0x223326))
+    val CONCEPT_ACCENT = JBColor(Color(0x3D7BE0), Color(0x5C9CF0))
+    val CONCEPT_BACKGROUND = JBColor(Color(0xEEF4FD), Color(0x232B38))
     val NEUTRAL_ACCENT = JBColor(Color(0x9AA0A6), Color(0x6E7378))
     val NEUTRAL_BACKGROUND = JBColor(Color(0xF3F4F6), Color(0x2B2D30))
     val WRONG = JBColor(Color(0xC62828), Color(0xEF7070))
@@ -156,6 +158,14 @@ class Card(private val accent: Color, private val background: Color) : JPanel() 
         row(panel, gapAfter = 0)
     }
 
+    /** One line in a list: a link, then a short muted description ("static  belongs to the class"). */
+    fun linkLine(text: String, detail: String, onClick: () -> Unit) {
+        val panel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { isOpaque = false }
+        panel.add(ActionLink(text) { onClick() })
+        panel.add(JLabel("  $detail").apply { foreground = UIUtil.getContextHelpForeground() })
+        row(panel, gapAfter = 3)
+    }
+
     private fun row(component: JComponent, gapAfter: Int) {
         val wrapper = JPanel(BorderLayout()).apply {
             isOpaque = false
@@ -184,6 +194,28 @@ fun emptyState(title: String, detail: String, good: Boolean): JComponent =
         title(title)
         text(detail, muted = true)
     }
+
+/**
+ * Gives [component] a fixed [width] and the height its wrapped text needs at that width. For popups,
+ * which size themselves from the preferred size before any layout has happened.
+ */
+fun fitToWidth(component: JComponent, width: Int): JComponent {
+    var height = component.preferredSize.height
+    repeat(3) {
+        component.setSize(width, height.coerceAtLeast(1))
+        layoutTree(component)
+        height = component.preferredSize.height
+    }
+    component.preferredSize = Dimension(width, height)
+    return component
+}
+
+private fun layoutTree(component: Component) {
+    if (component !is java.awt.Container) return
+    component.invalidate()
+    component.doLayout()
+    component.components.forEach(::layoutTree)
+}
 
 fun heading(text: String): JComponent = JLabel(text).apply {
     font = JBUI.Fonts.label().deriveFont(Font.BOLD, JBUI.Fonts.label().size2D + 1f)

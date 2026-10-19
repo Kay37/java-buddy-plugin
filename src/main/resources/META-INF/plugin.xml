@@ -7,7 +7,8 @@
 
     <description><![CDATA[
         A friendly helper for people learning Java: explains errors and crashes in plain English,
-        right under the code, with how to fix them and a small example.
+        right under the code, with how to fix them and a small example. Rest the mouse on a Java word
+        like static or extends for a short card that explains it.
     ]]></description>
 
     <!-- Built and tested against IntelliJ 2026.2 (build 262). -->
@@ -37,6 +38,10 @@
                     class="dev.javabuddy.ToggleErrorBubblesAction"
                     text="Explain Errors Under the Code"
                     description="Show a plain-English bubble under each line with a red error"/>
+            <action id="JavaBuddy.ToggleConceptHover"
+                    class="dev.javabuddy.ToggleConceptHoverAction"
+                    text="Explain Java Words When Hovering"
+                    description="Show a short card when the mouse rests on a Java word like static or extends"/>
             <action id="JavaBuddy.ToggleCrashPopups"
                     class="dev.javabuddy.ToggleCrashPopupsAction"
                     text="Explain Crashes When a Program Stops"

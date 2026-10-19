@@ -119,7 +119,8 @@ To find which jar holds a class: loop over `"$IDE"/lib/*.jar` with `unzip -l | g
 |---|---|
 | (root) | `JavaBuddy.kt` (`JavaBuddyScope`, `notifyUser`, `JavaBuddySettings`), `JavaBuddyToolWindowFactory.kt` (side panel tabs, startup, toggle actions) |
 | `errors/` | `Explanations.kt` (rule tables: `COMPILE_RULES` match IntelliJ's own error wording, with javac's as alternates; `CRASH_RULES`; `LAUNCH_RULES`), `ErrorExplainer` (project service: reads the editor's ERROR highlights after each analysis, "did you mean", bubbles, crash state), `ErrorBubbleRenderer` (block inlay under the line), `CrashWatcher` (`ExecutionListener`: parses the run's stack trace, finds the first frame in project code), `ErrorsPanel` (the Errors tab) |
-| `ui/` | `Cards.kt`: `Card` (rounded, accent stripe; chip/title/section/example/links), `CardList`, `BuddyColors`, `emptyState`, `heading` |
+| `concepts/` | `Concepts.kt` (the cards: `Concept`, `Topic`, `Concepts.ALL`, `BY_KEYWORD`), `ConceptFinder.kt` (`conceptAt`: which card the PSI token at an offset opens), `ConceptCards` (project service: hover popup after 0.5 s, caret following, `current` card), `ConceptsPanel` (the Concepts tab) |
+| `ui/` | `Cards.kt`: `Card` (rounded, accent stripe; chip/title/section/example/links), `CardList`, `BuddyColors`, `emptyState`, `heading`, `fitToWidth` (sizes a popup to its wrapped text) |
 
 Conventions: background work uses the project `JavaBuddyScope` coroutine scope; user messages go
 through `notifyUser(...)`; settings are `PropertiesComponent` keys prefixed `javaBuddy.`. Error

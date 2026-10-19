@@ -13,6 +13,8 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
+import dev.javabuddy.concepts.ConceptCards
+import dev.javabuddy.concepts.ConceptsPanel
 import dev.javabuddy.errors.ErrorExplainer
 import dev.javabuddy.errors.ErrorsPanel
 import kotlinx.coroutines.Dispatchers
@@ -24,13 +26,19 @@ class JavaBuddyToolWindowFactory : ToolWindowFactory, DumbAware {
         val errors = ErrorsPanel(project)
         Disposer.register(toolWindow.disposable, errors)
         toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(errors, "Errors", false))
+        val concepts = ConceptsPanel(project)
+        Disposer.register(toolWindow.disposable, concepts)
+        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(concepts, ConceptCards.TAB_NAME, false))
     }
 }
 
-/** Starts watching editors for errors when a project opens. */
+/** Starts watching editors for errors and for hovered Java words when a project opens. */
 class JavaBuddyStartup : ProjectActivity {
     override suspend fun execute(project: Project) {
-        withContext(Dispatchers.EDT) { project.service<ErrorExplainer>().start() }
+        withContext(Dispatchers.EDT) {
+            project.service<ErrorExplainer>().start()
+            project.service<ConceptCards>().start()
+        }
     }
 }
 
@@ -40,6 +48,14 @@ class ToggleErrorBubblesAction : DumbAwareToggleAction() {
     override fun setSelected(e: AnActionEvent, state: Boolean) {
         JavaBuddySettings.errorBubbles = state
         ProjectManager.getInstance().openProjects.forEach { it.service<ErrorExplainer>().refreshSelected() }
+    }
+}
+
+class ToggleConceptHoverAction : DumbAwareToggleAction() {
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
+    override fun isSelected(e: AnActionEvent) = JavaBuddySettings.conceptHover
+    override fun setSelected(e: AnActionEvent, state: Boolean) {
+        JavaBuddySettings.conceptHover = state
     }
 }
 
