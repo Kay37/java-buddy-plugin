@@ -18,6 +18,8 @@ data class ProgressMap(
     val commits: List<CommitIdeas>,
     val repos: List<String>,
     val problems: List<String>,
+    /** Folders that look like they hold more Java projects, to offer with one click. */
+    val suggestions: List<String> = emptyList(),
 )
 
 /**
@@ -39,6 +41,22 @@ object ProgressScanner {
     }
 
     private val SKIPPED = setOf("node_modules", "target", "build", "out", "AppData")
+
+    /**
+     * Folders in the home folder that look like they hold course work: two or more git projects
+     * with Java files. Offered with one click, so the learner doesn't have to know where to look.
+     */
+    fun suggestFolders(home: File, already: Collection<String>, projectRoots: Collection<File>): List<File> {
+        val taken = (already.map { File(it).canonicalPath } + projectRoots.map { it.canonicalPath }).toSet()
+        val children = home.listFiles { file -> file.isDirectory && !file.name.startsWith(".") && file.name !in SKIPPED } ?: return emptyList()
+        return children.filter { folder ->
+            folder.canonicalPath !in taken &&
+                findRepos(folder, depth = 2).count { repo -> taken.none { repo.canonicalPath == it } && hasJava(repo) } >= 2
+        }.take(3)
+    }
+
+    private fun hasJava(repo: File): Boolean =
+        repo.walkTopDown().maxDepth(6).onEnter { it.name !in SKIPPED && !it.name.startsWith(".") }.any { it.isFile && it.name.endsWith(".java") }
 
     fun scan(repos: List<File>): ProgressMap {
         val commits = mutableListOf<CommitIdeas>()

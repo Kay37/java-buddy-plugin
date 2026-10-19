@@ -63,9 +63,11 @@ class DrillsPanel(private val project: Project) : JPanel(BorderLayout()), Dispos
         scroll.verticalScrollBar.value = if (jumpToTop) 0 else scrollPosition
     }
 
-    private fun introCard(state: DrillState): Card = Card(BuddyColors.HELP_ACCENT, BuddyColors.HELP_BACKGROUND).apply {
-        chip("${state.passed.count { done -> DRILLS.any { it.className == done } }} of ${DRILLS.size} done")
+    private fun introCard(state: DrillState): Card = Card(BuddyColors.HELP_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
+        val done = state.passed.count { name -> DRILLS.any { it.className == name } }
+        chip("$done of ${DRILLS.size} done")
         title("Practice drills")
+        progressBar(done, DRILLS.size)
         text("Small exercises for what you're learning. Press Start to open one, write your code, then press Check my answer at the top of the file.")
         text("Your drill files are kept in IntelliJ's Scratches folder (Project panel → Scratches and Consoles), not in your course projects.", muted = true)
     }
@@ -101,9 +103,9 @@ class DrillsPanel(private val project: Project) : JPanel(BorderLayout()), Dispos
             is DrillOutcome.Checked -> checkedCard(drill, outcome)
             is DrillOutcome.DidNotCompile -> compileCard(drill, outcome)
             is DrillOutcome.NoJdk -> Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
-                chip("Needs a JDK")
-                title("Java Buddy needs a JDK to check drills")
-                text("${outcome.reason} Open File → Project Structure → Project, and pick a JDK under SDK (for example corretto-17).")
+                chip("Needs Java set up")
+                title("Java Buddy needs Java's tools (a JDK) to check drills")
+                text("${outcome.reason} Open File → Project Structure → Project, and under SDK pick a Java version, for example corretto-17. Then press Check my answer again.")
             }
             is DrillOutcome.Failed -> Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
                 chip("Couldn't check")

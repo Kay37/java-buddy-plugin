@@ -56,15 +56,18 @@ class MemoryService(private val project: Project) : Disposable {
 
     private fun watch(session: XDebugSession) {
         shownThisSession = false
+        val disposable = Disposer.newDisposable(this, "Java Buddy memory listener")
         val listener = object : XDebugSessionListener {
             override fun sessionPaused() = capture(session)
             override fun stackFrameChanged() = capture(session)
             override fun sessionResumed() {
                 if (XDebuggerManager.getInstance(project).currentSession == session) _state.value = MemoryState.Running
             }
-            override fun sessionStopped() = reset(MemoryState.Idle)
+            override fun sessionStopped() {
+                reset(MemoryState.Idle)
+                Disposer.dispose(disposable)
+            }
         }
-        val disposable = Disposer.newDisposable(this, "Java Buddy memory listener")
         session.addSessionListener(listener, disposable)
         if (session.isSuspended) capture(session) else _state.value = MemoryState.Running
     }
@@ -85,7 +88,7 @@ class MemoryService(private val project: Project) : Disposable {
         val suspendContext = session.suspendContext as? SuspendContextImpl
         if (process == null) return publishProblem("The Memory Picture works with Java programs only.")
         if (frame == null || suspendContext == null) {
-            _state.value = if (session.isSuspended) MemoryState.Unavailable("Pick a line in the Frames list to see its variables.") else MemoryState.Running
+            _state.value = if (session.isSuspended) MemoryState.Unavailable("In the Debug window, click a method in the Frames list (the list of methods that are running) to see its variables.") else MemoryState.Running
             return
         }
         process.managerThread.schedule(object : SuspendContextCommandImpl(suspendContext) {

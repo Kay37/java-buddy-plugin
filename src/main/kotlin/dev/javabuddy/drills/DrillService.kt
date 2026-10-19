@@ -89,9 +89,11 @@ class DrillService(private val project: Project) {
 
     fun check(drill: Drill) {
         if (_state.value.running != null) return
+        // Find the file here, outside any read lock: finding a scratch file may touch the disk.
+        val file = existingFile(drill) ?: return open(drill)
         val cs = project.service<JavaBuddyScope>().cs
         cs.launch {
-            val code = readAction { existingFile(drill)?.let { FileDocumentManager.getInstance().getDocument(it)?.text } }
+            val code = readAction { FileDocumentManager.getInstance().getDocument(file)?.text }
             if (code == null) {
                 withContext(Dispatchers.EDT) { open(drill) }
                 return@launch
@@ -117,9 +119,7 @@ class DrillService(private val project: Project) {
                     passed = if (passedNow) it.passed + drill.className else it.passed,
                 )
             }
-            withContext(Dispatchers.EDT) {
-                existingFile(drill)?.let { EditorNotifications.getInstance(project).updateNotifications(it) }
-            }
+            withContext(Dispatchers.EDT) { EditorNotifications.getInstance(project).updateNotifications(file) }
         }
     }
 

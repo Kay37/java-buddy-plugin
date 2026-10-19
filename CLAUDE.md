@@ -120,7 +120,10 @@ To find which jar holds a class: loop over `"$IDE"/lib/*.jar` with `unzip -l | g
 | (root) | `JavaBuddy.kt` (`JavaBuddyScope`, `notifyUser`, `JavaBuddySettings`), `JavaBuddyToolWindowFactory.kt` (side panel tabs, startup, toggle actions) |
 | `errors/` | `Explanations.kt` (rule tables: `COMPILE_RULES` match IntelliJ's own error wording, with javac's as alternates; `CRASH_RULES`; `LAUNCH_RULES`), `ErrorExplainer` (project service: reads the editor's ERROR highlights after each analysis, "did you mean", bubbles, crash state), `ErrorBubbleRenderer` (block inlay under the line), `CrashWatcher` (`ExecutionListener`: parses the run's stack trace, finds the first frame in project code), `ErrorsPanel` (the Errors tab) |
 | `concepts/` | `Concepts.kt` (the cards: `Concept`, `Topic`, `Concepts.ALL`, `BY_KEYWORD`), `ConceptFinder.kt` (`conceptAt`: which card the PSI token at an offset opens), `ConceptCards` (project service: hover popup after 0.5 s, caret following, `current` card), `ConceptsPanel` (the Concepts tab) |
-| `ui/` | `Cards.kt`: `Card` (rounded, accent stripe; chip/title/section/example/links), `CardList`, `BuddyColors`, `emptyState`, `heading`, `fitToWidth` (sizes a popup to its wrapped text) |
+| `drills/` | `Drills.kt` (`Topic`, `Check.Returns`/`Prints`, the 33 `DRILLS` with starter code), `DrillChecker` (writes the learner's code + a generated Java 8 test class to a temp dir, `javac` + `java` from the project JDK, 5 s run limit, parses `@@JB` marker lines), `DrillService` (scratch files, check, passed set in `javaBuddy.drills.passed`), `DrillsPanel` (the Drills tab), `DrillNotificationProvider` (the "Check my answer" bar on drill files) |
+| `progress/` | `Ideas.kt` (41 `IDEAS`: regex per added line, quotes/comments stripped; links to a concept card and drill topic), `ProgressScanner` (`git log -p` per repo, first use per idea, `suggestFolders`), `ProgressService` (open project's VCS roots + folders in `javaBuddy.progress.folders`), `ProgressPanel` (Progress tab, `Tile`) |
+| `memory/` | `MemorySnapshot.kt` (`SnapshotBuilder`: JDI frame → rows/boxes; Strings, boxed numbers and enums inline; ArrayList/HashMap read from their fields; Java's own objects not opened), `MemoryService` (`XDebugSessionListener`, builds on the debugger manager thread via `SuspendContextCommandImpl`, "changed" keys), `MemoryPicture` (paints boxes and arrows), `MemoryPanel` (Memory tab) |
+| `ui/` | `Cards.kt`: `Card` (rounded, accent stripe; chip/title/section/example/links/custom/progressBar), `CardList`, `BuddyColors`, `emptyState`, `heading`, `fitToWidth` (sizes a popup to its wrapped text) |
 
 Conventions: background work uses the project `JavaBuddyScope` coroutine scope; user messages go
 through `notifyUser(...)`; settings are `PropertiesComponent` keys prefixed `javaBuddy.`. Error
@@ -131,7 +134,14 @@ on the class path, calling `ExplanationsKt.explainCompileError("...")`.
 
 `playground/` is a small Maven project to open in the test IDE: module `errors` has deliberate
 mistakes (bubbles), module `crashes` has programs that crash on purpose (run them). Separate modules
-so the broken code doesn't stop the crash programs from building.
+so the broken code doesn't stop the crash programs from building. `concepts` is for hovering words,
+`memory` (`TryMemory.java`) for debugging with the Memory tab.
+
+Testing without the IDE (scripts in the session scratchpad, not committed): run Java against
+`target/classes` + `"$IDE/lib/*"` with **the IDE's own `jbr/bin/java.exe`** (the IDE jars need Java 25).
+Drills: call `DrillChecker.INSTANCE.check(drill, code, corretto17Home)` with a right answer and the
+starter for every drill. Visuals: build `MemoryPicture` / `Card`s and paint them into a PNG (headless,
+plus `--add-exports=java.desktop/sun.swing=ALL-UNNAMED`; `Card.example` needs a running IDE).
 
 ## Environment notes
 

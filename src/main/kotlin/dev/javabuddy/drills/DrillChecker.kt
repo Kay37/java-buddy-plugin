@@ -48,7 +48,7 @@ object DrillChecker {
         val javac = jdkHome?.let { tool(it, "javac") }
         val java = jdkHome?.let { tool(it, "java") }
         if (javac == null || java == null) {
-            return DrillOutcome.NoJdk(if (jdkHome == null) "This project has no JDK set." else "The project's JDK has no javac in $jdkHome.")
+            return DrillOutcome.NoJdk(if (jdkHome == null) "This project isn't set up with a Java version yet." else "The Java set up for this project ($jdkHome) can't build code: it has no javac.")
         }
         val dir = FileUtil.createTempDirectory("javabuddy-drill", null, true)
         try {

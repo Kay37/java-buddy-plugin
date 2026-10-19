@@ -99,11 +99,11 @@ val DRILLS: List<Drill> = listOf(
     // ---------------------------------------------------------------- Static methods
     Drill(
         "SayHello", Topic.STATIC, "Your first static method",
-        task = "Write a static method called sayHello that prints Hello! . main already calls it.",
+        task = "Write a static method called sayHello that prints \"Hello!\". main already calls it.",
         signature = "static void sayHello()",
-        starter = writeYourOwn("SayHello", "static void sayHello()", "It prints Hello! and gives nothing back (that's what void means).", listOf("sayHello();   // runs your method")),
+        starter = writeYourOwn("SayHello", "static void sayHello()", "It prints \"Hello!\" and gives nothing back (that's what void means).", listOf("sayHello();   // runs your method")),
         hint = "Inside the method's { }, use System.out.println(\"Hello!\"); . The red line under sayHello() in main goes away once the method exists.",
-        checks = listOf(Check.Prints("sayHello()", "Hello!", why = "It should print exactly Hello! , with a capital H and an exclamation mark.")),
+        checks = listOf(Check.Prints("sayHello()", "Hello!", why = "It should print exactly \"Hello!\", with a capital H and an exclamation mark.")),
     ),
     Drill(
         "Square", Topic.STATIC, "Give back a value",
@@ -456,7 +456,7 @@ val DRILLS: List<Drill> = listOf(
     // ---------------------------------------------------------------- Loops (coming up)
     Drill(
         "Countdown", Topic.LOOPS, "Countdown",
-        task = "Give back a countdown from the number to 1, then Go! . 3 gives back \"3 2 1 Go!\".",
+        task = "Give back a countdown from the number down to 1, then \"Go!\". For 3 that's \"3 2 1 Go!\".",
         signature = "static String countdown(int from)",
         starter = fillIn("Countdown", "3 gives back \"3 2 1 Go!\"", "static String countdown(int from)", "\"\"", listOf(print("countdown(3)") + "   // should print 3 2 1 Go!")),
         hint = "Start with String text = \"\"; then a for loop from 'from' down to 1 that adds i + \" \" each time. Add \"Go!\" at the end.",

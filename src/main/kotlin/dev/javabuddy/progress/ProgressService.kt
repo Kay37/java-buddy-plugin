@@ -7,6 +7,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.ProjectLevelVcsManager
 import com.intellij.openapi.application.readAction
 import dev.javabuddy.JavaBuddyScope
+import com.intellij.openapi.diagnostic.logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,10 +44,23 @@ class ProgressService(private val project: Project) {
                 val vcsRoots = ProjectLevelVcsManager.getInstance(project).allVcsRoots.map { File(it.path.path) }
                 vcsRoots.ifEmpty { listOfNotNull(project.basePath?.let(::File)) }
             }
-            val map = withContext(Dispatchers.IO) {
-                val repos = projectRoots.flatMap { ProgressScanner.findRepos(it, depth = 1) } +
-                    ProgressFolders.get().flatMap { ProgressScanner.findRepos(File(it)) }
-                ProgressScanner.scan(repos)
+            val map = try {
+                withContext(Dispatchers.IO) {
+                    val folders = ProgressFolders.get()
+                    val repos = projectRoots.flatMap { ProgressScanner.findRepos(it, depth = 1) } +
+                        folders.flatMap { ProgressScanner.findRepos(File(it)) }
+                    val suggestions = if (folders.isNotEmpty()) emptyList()
+                                      else ProgressScanner.suggestFolders(File(System.getProperty("user.home")), folders, projectRoots).map { it.path }
+                    ProgressScanner.scan(repos).copy(suggestions = suggestions)
+                }
+            }
+            catch (e: CancellationException) {
+                _state.update { it.copy(scanning = false) }
+                throw e
+            }
+            catch (e: Exception) {
+                LOG.warn("Reading git history failed", e)
+                ProgressMap(emptyMap(), emptyList(), emptyList(), listOf("your projects: ${e.message ?: e.javaClass.simpleName}"))
             }
             _state.update { it.copy(map = map, scanning = false, folders = ProgressFolders.get()) }
         }
@@ -69,6 +84,7 @@ class ProgressService(private val project: Project) {
 
     companion object {
         const val TAB_NAME = "Progress"
+        private val LOG = logger<ProgressService>()
     }
 }
 

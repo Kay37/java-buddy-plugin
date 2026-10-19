@@ -72,7 +72,7 @@ class ProgressPanel(private val project: Project) : JPanel(BorderLayout()), Disp
         else {
             list.addCard(summaryCard(map, state))
             state.selected?.let { id -> IDEAS.firstOrNull { it.id == id } }?.let { list.addCard(ideaCard(it, map)) }
-            if (state.folders.isEmpty()) list.addCard(addFolderCard())
+            if (state.folders.isEmpty()) list.addCard(addFolderCard(map.suggestions))
             for (group in IdeaGroup.entries) {
                 val ideas = IDEAS.filter { it.group == group }
                 val used = ideas.count { it.id in map.uses }
@@ -109,10 +109,18 @@ class ProgressPanel(private val project: Project) : JPanel(BorderLayout()), Disp
         )
     }
 
-    private fun addFolderCard(): Card = Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
+    private fun addFolderCard(suggestions: List<String>): Card = Card(BuddyColors.HELP_ACCENT, BuddyColors.HELP_BACKGROUND).apply {
+        chip("Tip")
         title("See all your course work")
-        text("Right now the map only reads this project. Add the folder that holds all your course projects (for example C:\\Users\\you\\pluralsight) and every project in it counts too.")
-        links("Add a folder…" to ::chooseFolder)
+        if (suggestions.isNotEmpty()) {
+            text("Right now the map only reads this project. This folder looks like it holds more of your Java projects. Add it, and every project in it counts too:")
+            suggestions.forEach { folder -> linkLine("Add", folder) { progress.addFolder(folder) } }
+            links("Choose a different folder…" to ::chooseFolder)
+        }
+        else {
+            text("Right now the map only reads this project. Add the folder that holds all your course projects, and every project in it counts too.")
+            links("Add a folder…" to ::chooseFolder)
+        }
     }
 
     private fun chooseFolder() {
@@ -180,7 +188,7 @@ class ProgressPanel(private val project: Project) : JPanel(BorderLayout()), Disp
 }
 
 /** One idea on the map: filled and dated once used, an outline until then. */
-private class Tile(private val idea: Idea, private val use: IdeaUse?, private val selected: Boolean, onClick: () -> Unit) : JPanel() {
+internal class Tile(private val idea: Idea, private val use: IdeaUse?, private val selected: Boolean, onClick: () -> Unit) : JPanel() {
     init {
         layout = BoxLayout(this, BoxLayout.Y_AXIS)
         isOpaque = false
