@@ -13,6 +13,7 @@
         <module>errors</module>
         <module>crashes</module>
         <module>concepts</module>
+        <module>memory</module>
     </modules>
 
     <properties>

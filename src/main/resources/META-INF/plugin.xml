@@ -8,7 +8,8 @@
     <description><![CDATA[
         A friendly helper for people learning Java: explains errors and crashes in plain English,
         right under the code, with how to fix them and a small example. Rest the mouse on a Java word
-        like static or extends for a short card that explains it.
+        like static or extends for a short card that explains it. Practice with small drills that check
+        your code and tell you what to fix.
     ]]></description>
 
     <!-- Built and tested against IntelliJ 2026.2 (build 262). -->
@@ -24,6 +25,7 @@
                     factoryClass="dev.javabuddy.JavaBuddyToolWindowFactory"/>
         <notificationGroup id="Java Buddy" displayType="BALLOON"/>
         <postStartupActivity implementation="dev.javabuddy.JavaBuddyStartup"/>
+        <editorNotificationProvider implementation="dev.javabuddy.drills.DrillNotificationProvider"/>
     </extensions>
 
     <projectListeners>

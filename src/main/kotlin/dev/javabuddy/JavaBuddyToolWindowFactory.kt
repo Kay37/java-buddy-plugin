@@ -15,6 +15,12 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import dev.javabuddy.concepts.ConceptCards
 import dev.javabuddy.concepts.ConceptsPanel
+import dev.javabuddy.drills.DrillService
+import dev.javabuddy.drills.DrillsPanel
+import dev.javabuddy.memory.MemoryPanel
+import dev.javabuddy.memory.MemoryService
+import dev.javabuddy.progress.ProgressPanel
+import dev.javabuddy.progress.ProgressService
 import dev.javabuddy.errors.ErrorExplainer
 import dev.javabuddy.errors.ErrorsPanel
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +35,15 @@ class JavaBuddyToolWindowFactory : ToolWindowFactory, DumbAware {
         val concepts = ConceptsPanel(project)
         Disposer.register(toolWindow.disposable, concepts)
         toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(concepts, ConceptCards.TAB_NAME, false))
+        val drills = DrillsPanel(project)
+        Disposer.register(toolWindow.disposable, drills)
+        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(drills, DrillService.TAB_NAME, false))
+        val progress = ProgressPanel(project)
+        Disposer.register(toolWindow.disposable, progress)
+        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(progress, ProgressService.TAB_NAME, false))
+        val memory = MemoryPanel(project)
+        Disposer.register(toolWindow.disposable, memory)
+        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(memory, MemoryService.TAB_NAME, false))
     }
 }
 
@@ -38,6 +53,7 @@ class JavaBuddyStartup : ProjectActivity {
         withContext(Dispatchers.EDT) {
             project.service<ErrorExplainer>().start()
             project.service<ConceptCards>().start()
+            project.service<MemoryService>().start()
         }
     }
 }

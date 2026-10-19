@@ -44,6 +44,9 @@ object BuddyColors {
     val WRONG = JBColor(Color(0xC62828), Color(0xEF7070))
     val RIGHT = JBColor(Color(0x2E7D32), Color(0x6CC070))
     val CODE_BACKGROUND = JBColor(Color(0xFFFFFF), Color(0x1E1F22))
+    val PROGRESS_ACCENT = JBColor(Color(0x7E57C2), Color(0x9D7FE0))
+    val PROGRESS_BACKGROUND = JBColor(Color(0xF4EFFC), Color(0x2C2738))
+    val TRACK = JBColor(Color(0xE3E5E8), Color(0x3C3F44))
 }
 
 /** A vertical list that always fits the panel's width, so wrapped text reflows as the panel resizes. */
@@ -165,6 +168,29 @@ class Card(private val accent: Color, private val background: Color) : JPanel() 
         panel.add(JLabel("  $detail").apply { foreground = UIUtil.getContextHelpForeground() })
         row(panel, gapAfter = 3)
     }
+
+    /** Any other component, full width, like a progress bar or a picture. */
+    fun custom(component: JComponent, gapAfter: Int = 8) = row(component, gapAfter)
+
+    /** A rounded bar filled to [done] out of [total]. */
+    fun progressBar(done: Int, total: Int) = custom(object : JComponent() {
+        override fun getPreferredSize() = Dimension(JBUI.scale(100), JBUI.scale(8))
+
+        override fun paintComponent(g: Graphics) {
+            val g2 = g.create() as Graphics2D
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                g2.color = BuddyColors.TRACK
+                g2.fillRoundRect(0, 0, width, height, height, height)
+                val filled = if (total <= 0) 0 else (width * done / total).coerceAtLeast(if (done > 0) height else 0)
+                g2.color = accent
+                g2.fillRoundRect(0, 0, filled, height, height, height)
+            }
+            finally {
+                g2.dispose()
+            }
+        }
+    })
 
     private fun row(component: JComponent, gapAfter: Int) {
         val wrapper = JPanel(BorderLayout()).apply {
