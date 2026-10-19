@@ -1,0 +1,47 @@
+<idea-plugin>
+    <id>dev.javabuddy</id>
+    <name>Java Buddy</name>
+    <!-- Filled in from pom.xml at build time. -->
+    <version>${project.version}</version>
+    <vendor>Java Buddy</vendor>
+
+    <description><![CDATA[
+        A friendly helper for people learning Java: explains errors and crashes in plain English,
+        right under the code, with how to fix them and a small example.
+    ]]></description>
+
+    <!-- Built and tested against IntelliJ 2026.2 (build 262). -->
+    <idea-version since-build="262"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Java Buddy"
+                    anchor="right"
+                    icon="AllIcons.Actions.IntentionBulb"
+                    factoryClass="dev.javabuddy.JavaBuddyToolWindowFactory"/>
+        <notificationGroup id="Java Buddy" displayType="BALLOON"/>
+        <postStartupActivity implementation="dev.javabuddy.JavaBuddyStartup"/>
+    </extensions>
+
+    <projectListeners>
+        <listener class="dev.javabuddy.errors.CrashWatcher"
+                  topic="com.intellij.execution.ExecutionListener"/>
+    </projectListeners>
+
+    <actions>
+        <!-- Editor right-click menu. -->
+        <group id="JavaBuddy.Options" text="Java Buddy" popup="true">
+            <action id="JavaBuddy.ToggleErrorBubbles"
+                    class="dev.javabuddy.ToggleErrorBubblesAction"
+                    text="Explain Errors Under the Code"
+                    description="Show a plain-English bubble under each line with a red error"/>
+            <action id="JavaBuddy.ToggleCrashPopups"
+                    class="dev.javabuddy.ToggleCrashPopupsAction"
+                    text="Explain Crashes When a Program Stops"
+                    description="Pop up a plain-English explanation when a run ends with an exception"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </group>
+    </actions>
+</idea-plugin>
