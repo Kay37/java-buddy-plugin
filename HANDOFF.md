@@ -16,12 +16,20 @@ The user approved overnight commits and pushes ("Feel free to commit and push un
 | 4. Progress Map | Tested headless on `C:\Users\kimba\pluralsight`: 8 repos, 14 commits, ideas and dates correct. **Not tried in the IDE yet.** |
 | 5. Memory Picture | Picture tested by painting a sample to PNG (light and dark). Debugger hookup **not tried yet**: nobody has debugged with it. |
 
-**New on 2026-10-19 (not committed yet):** two more tabs that use the Java Coach engine
-(`C:\Users\kimba\claude_JavaCoach`): **Coach** (style tips on the open Java file) and **Quest**
-(Java Quest: 30 quests in 6 levels through Workbook 2a, XP, ranks, hints that cost XP, stars, badges,
-streak freezes). Not tried by the user yet. The same game also runs in the engine folder's web
-dashboard (`coach-dashboard`), sharing one save file.
-Version 0.1.0 was installed into the user's own IntelliJ the same day (before these tabs).
+**New on 2026-10-19, local branch `coach-and-quest-tabs` (committed, not pushed, not merged):**
+the Java Coach engine (`C:\Users\kimba\claude_JavaCoach`) inside Java Buddy, after a pre-mortem
+("why would this be abandoned in a month?") pass. Tabs are now **Errors, Coach, Practice, Concepts,
+Progress, Memory**:
+- **Coach**: Style Coach notes on the open file, Helpful / Not helpful (hides that kind), a warm-up
+  quest for what the file uses. Tips also show in the editor (`StyleCoachInspection`, Alt+Enter).
+- **Practice**: Quests (Java Quest, 30 quests in 6 levels + AI bonus quests) and Drills share one tab.
+  Today's quest (and a once-a-day note), this week's mistakes, character with mood/look, class-level
+  picker, checklist, boss stages, stuck warm-up, report a check, AI coach, another way, gutter ▶ check,
+  failing line marked. Dashboard via Tools > Open Java Coach Dashboard.
+- Mistakes (errors that stay, crashes), style counts and use are written once a day to `~/.javacoach`.
+**Nothing here has been seen on screen**: no screen access. The test IDE loads it with no errors.
+The AI coach and bonus quests need the user's one-time `claude` → `/login`.
+Version 0.1.0 (before all this) is installed in the user's own IntelliJ.
 
 Nothing in tools 2–5 has been seen running in the IDE: no screen access overnight. The test IDE
 loads the plugin with no errors in `idea.log`.
