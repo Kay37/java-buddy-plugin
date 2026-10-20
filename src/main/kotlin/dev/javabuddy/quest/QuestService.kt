@@ -32,6 +32,18 @@ import dev.javacoach.engine.game.model.Quest
 import dev.javacoach.engine.game.progress.Award
 import dev.javacoach.engine.game.progress.PlayerProgress
 import dev.javacoach.engine.game.review.AnotherWay
+import dev.javacoach.engine.game.review.CheckReports
+import dev.javacoach.engine.game.review.Requirements
+import dev.javacoach.engine.game.content.BossStages
+import dev.javacoach.engine.game.model.QuestKind
+import dev.javacoach.engine.game.progress.Mastery
+import com.intellij.openapi.editor.impl.DocumentMarkupModel
+import com.intellij.openapi.editor.markup.EffectType
+import com.intellij.openapi.editor.markup.HighlighterLayer
+import com.intellij.openapi.editor.markup.RangeHighlighter
+import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.openapi.util.Key
+import com.intellij.ui.JBColor
 import dev.javacoach.engine.daily.MistakeNotebook
 import dev.javacoach.engine.daily.Today
 import dev.javacoach.engine.daily.UsageLog
@@ -47,8 +59,19 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
-/** A checked answer, and the XP it earned when it passed. */
-data class QuestResult(val check: CheckResult, val award: Award?)
+/**
+ * A checked answer and what came of it: XP when it passed, the boss stage reached (and XP for a
+ * new stage), the requirements checklist, and a smaller warm-up quest after several misses.
+ */
+data class QuestResult(
+    val check: CheckResult,
+    val award: Award?,
+    val answer: String = "",
+    val stage: Int = 0,
+    val stageXp: Int = 0,
+    val requirements: List<Requirements.Item> = emptyList(),
+    val stuckWarmUp: Mastery.Suggestion? = null,
+)
 
 /** "Another way": the quest's own solution (only after a pass) and notes on how it differs from the learner's file. */
 data class AnotherWayView(val code: String, val notes: List<String>)
@@ -119,9 +142,38 @@ class QuestService(private val project: Project) {
         }
     }
 
+    /** Open the normal way, or at or below the level the learner's class is on (their focus). */
     fun isUnlocked(quest: Quest): Boolean {
         val level = COURSE.levelOf(quest.id()).orElse(null) ?: return false
-        return COURSE.isUnlocked(level, _state.value.progress.completed())
+        return _state.value.progress.canPlay(COURSE, level)
+    }
+
+    /** "In class I'm on level N": opens that level (and the ones before it) straight away. 0 clears it. */
+    fun setFocus(level: Int) {
+        project.service<JavaBuddyScope>().cs.launch {
+            val progress = changeProgress { it.setFocus(level) } ?: return@launch
+            val daily = withContext(Dispatchers.IO) { daily(progress) }
+            _state.update { it.copy(progress = progress, daily = daily) }
+        }
+    }
+
+    /** "This check was wrong": saves the code and result with the learner's note, for fixing the quest later. */
+    fun report(quest: Quest) {
+        val result = _state.value.results[quest.id()] ?: return
+        val note = Messages.showInputDialog(
+            project,
+            "What seems wrong with this check? (For example: \"my answer is right but it says no\".) Your code is saved with your note, on this computer only.",
+            "Report This Check", null,
+        ) ?: return
+        project.service<JavaBuddyScope>().cs.launch(Dispatchers.IO) {
+            try {
+                val file = CheckReports.save(CheckReports.defaultDir(), quest, result.answer, result.check, note)
+                notifyUser(project, NotificationType.INFORMATION, "Thanks! Your report is saved", "It's in ${file.parent}. The quest will be fixed from it.")
+            }
+            catch (e: Exception) {
+                notifyUser(project, NotificationType.WARNING, "Couldn't save the report", e.message ?: e.javaClass.simpleName)
+            }
+        }
     }
 
     fun isDone(quest: Quest) = _state.value.progress.isDone(quest.id())
@@ -213,8 +265,28 @@ class QuestService(private val project: Project) {
                 else -> runCheck(quest, answer)
             }
             _state.update { it.copy(results = it.results + (quest.id() to result), running = null) }
-            withContext(Dispatchers.EDT) { EditorNotifications.getInstance(project).updateNotifications(file) }
+            withContext(Dispatchers.EDT) {
+                EditorNotifications.getInstance(project).updateNotifications(file)
+                markLine(file, if (result.check.isPassed) 0 else result.check.line())
+            }
         }
+    }
+
+    /** Puts a red mark on the line the last check points at (in the editor and its scrollbar); 0 clears it. */
+    private fun markLine(file: VirtualFile, line: Int) {
+        val document = FileDocumentManager.getInstance().getDocument(file) ?: return
+        val markup = DocumentMarkupModel.forDocument(document, project, true)
+        file.getUserData(MARK)?.let { if (it.isValid) markup.removeHighlighter(it) }
+        file.putUserData(MARK, null)
+        if (line < 1 || line > document.lineCount) return
+        val attributes = TextAttributes().apply {
+            effectType = EffectType.WAVE_UNDERSCORE
+            effectColor = JBColor.RED
+            errorStripeColor = JBColor.RED
+        }
+        val highlighter = markup.addLineHighlighter(line - 1, HighlighterLayer.ERROR, attributes)
+        highlighter.errorStripeTooltip = "Java Quest: the last check pointed here"
+        file.putUserData(MARK, highlighter)
     }
 
     private suspend fun runCheck(quest: Quest, answer: String): QuestResult {
@@ -232,15 +304,19 @@ class QuestService(private val project: Project) {
             return QuestResult(CheckResult(CheckResult.Status.CRASHED, "Something went wrong while checking: ${e.message ?: e.javaClass.simpleName}", 0, 0, 0, false), null)
         }
         var award: Award? = null
+        val stage = BossStages.reached(quest, check)
+        var stageXp = 0
         val progress = changeProgress {
             it.recordTry(quest.id())
+            if (quest.kind() == QuestKind.BOSS) stageXp = it.recordStage(quest.id(), stage, BossStages.of(quest).size)
             if (check.isPassed) award = it.complete(COURSE, quest, check.styleClean(), LocalDate.now())
         }
         if (progress != null) {
             val daily = withContext(Dispatchers.IO) { daily(progress) }
             _state.update { it.copy(progress = progress, daily = daily) }
         }
-        return QuestResult(check, award)
+        val stuck = if (check.isPassed || progress == null) null else Mastery.warmUp(COURSE, progress, quest).orElse(null)
+        return QuestResult(check, award, answer, stage, stageXp, Requirements.status(quest, check), stuck)
     }
 
     /**
@@ -295,6 +371,7 @@ class QuestService(private val project: Project) {
         const val FOLDER = "java-quest"
         val COURSE: Course = StarterCourse.create()
         private val LOG = logger<QuestService>()
+        private val MARK = Key.create<RangeHighlighter>("javaBuddy.questMark")
 
         private fun loadQuietly(): Pair<PlayerProgress, String?> = try {
             PlayerProgress.load(PlayerProgress.defaultFile()) to null

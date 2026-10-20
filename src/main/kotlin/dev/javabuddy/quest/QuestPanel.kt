@@ -26,7 +26,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
+import javax.swing.BoxLayout
+import javax.swing.ImageIcon
+import javax.swing.JComponent
+import javax.swing.JLabel
 import javax.swing.JPanel
+import com.intellij.openapi.ui.ComboBox
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
+import dev.javacoach.engine.game.avatar.Avatars
+import dev.javacoach.engine.game.avatar.Sprite
+import dev.javacoach.engine.game.avatar.SpriteArt
+import dev.javacoach.engine.game.content.BossStages
+import dev.javacoach.engine.game.review.Requirements
 import javax.swing.ScrollPaneConstants
 
 /** The "Quest" tab: the latest result on top, then XP and rank, then every level and its quests. */
@@ -63,7 +75,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
 
         for (level in QuestService.COURSE.levels()) {
             val done = level.quests().count { state.progress.isDone(it.id()) }
-            val open = QuestService.COURSE.isUnlocked(level, state.progress.completed())
+            val open = state.progress.canPlay(QuestService.COURSE, level)
             list.addCard(heading("Level ${level.number()}: ${level.name()}  ·  $done of ${level.quests().size} done${if (open) "" else "  (locked)"}"))
             level.quests().forEach { list.addCard(questCard(it, state, open)) }
         }
@@ -80,6 +92,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         val progress = state.progress
         val xp = progress.xp()
         val toNext = XpRules.xpToNextRank(xp)
+        custom(characterRow(state))
         chip("Rank: ${progress.rank()}")
         title("Java Quest  ·  $xp XP")
         progressBar(xp, xp + toNext)
@@ -98,6 +111,43 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         state.saveProblem?.let { text(it) }
         state.daily?.let { text("You used Java Buddy on ${it.daysUsed} of the last 7 days.", muted = true) }
         links("Open the dashboard in your browser" to { service<DashboardLauncher>().open(null) })
+    }
+
+    /**
+     * The picked character (in its picked look) next to the class-level picker. The character is
+     * happy after a pass, thinking while a check runs or after a miss.
+     */
+    private fun characterRow(state: QuestState): JComponent {
+        val progress = state.progress
+        val last = state.focus?.let { state.results[it] }
+        val mood = when {
+            state.running != null -> Sprite.Mood.THINKING
+            last == null -> Sprite.Mood.IDLE
+            last.check.isPassed -> Sprite.Mood.HAPPY
+            else -> Sprite.Mood.THINKING
+        }
+        val base = Avatars.find(progress.avatar()).orElse(Avatars.all().first())
+        val sprite = runCatching { if (progress.look().isBlank()) base else Avatars.withLook(base, progress.look()) }.getOrDefault(base)
+        val picture = JLabel(ImageIcon(SpriteArt.image(sprite, JBUI.scale(3), mood))).apply { toolTipText = sprite.name() }
+
+        val levels = QuestService.COURSE.levels()
+        val choices = listOf("Not set") + levels.map { "Level ${it.number()}: ${it.name()} (${it.workbook()})" }
+        val picker = ComboBox(choices.toTypedArray()).apply {
+            selectedIndex = progress.focusLevel().coerceIn(0, levels.size)
+            toolTipText = "Pick the level your class is on, and it opens right away (with the levels before it)."
+            addActionListener { if (selectedIndex != progress.focusLevel()) quests.setFocus(selectedIndex) }
+        }
+        val side = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            isOpaque = false
+            add(JLabel("In class I'm on:").apply { alignmentX = 0f; foreground = UIUtil.getContextHelpForeground() })
+            add(picker.apply { alignmentX = 0f; maximumSize = preferredSize })
+        }
+        return JPanel(BorderLayout(JBUI.scale(12), 0)).apply {
+            isOpaque = false
+            add(picture, BorderLayout.WEST)
+            add(side, BorderLayout.CENTER)
+        }
     }
 
     /** One small quest a day, picked from recent mistakes, a weak topic, or what's next. */
@@ -164,6 +214,16 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             section("THE PROGRAM", "Read it carefully. What does it print? Type your guess into ${QuestService.fileName(quest)}, one printed line per line.")
             example(quest.starter().trimEnd())
         }
+        if (showProgram) {
+            section("WHAT THE CHECK LOOKS FOR", "")
+            checklist(Requirements.of(quest))
+            if (quest.kind() == QuestKind.BOSS) {
+                val stages = BossStages.of(quest)
+                val reached = state.progress.bossStage(quest.id())
+                section("BOSS STAGES · $reached OF ${stages.size}", "")
+                example(stages.mapIndexed { k, s -> (if (k < reached) "✓ " else "○ ") + s.name() }.joinToString("\n"))
+            }
+        }
         hintSections(quest, state)
         val started = quests.hasFile(quest)
         val links = buildList<Pair<String, () -> Unit>> {
@@ -205,6 +265,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         chip("Passed · ${check.passed()} of ${check.total()} tests")
         title("Quest complete: ${quest.title()}!")
         richText(check.message())
+        stageSection(quest, result)
         val award = result.award
         if (award != null && award.stars() > 0) {
             text("${stars(award.stars())}  " + if (award.stars() == 3) "Three stars!" else "For more stars, solve it without hints and leave the Coach nothing to fix. Replays count.")
@@ -256,6 +317,8 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             chip(if (check.total() > 0) "${check.status().label()} · ${check.passed()} of ${check.total()} tests" else check.status().label())
             title("${quest.title()}: ${check.status().label().lowercase()}")
             richText(check.message())
+            stageSection(quest, result)
+            checklist(result.requirements)
             hintSections(quest, state)
             val links = buildList<Pair<String, () -> Unit>> {
                 add("Check again" to { quests.check(quest) })
@@ -264,7 +327,33 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
                 hintLink(quest, state, state.progress.isDone(quest.id()))?.let(::add)
             }
             links(*links.toTypedArray())
+            result.stuckWarmUp?.let { warm ->
+                section("STUCK? TRY THIS FIRST", plain(warm.reason()))
+                links("Warm up with ${warm.quest().title()}" to { quests.open(warm.quest()); quests.focus(warm.quest()) })
+            }
+            links("This check is wrong" to { quests.report(quest) })
         }
+    }
+
+    /** The requirements checklist: ✓ works, ✗ where the check stopped, ○ not tested yet. */
+    private fun Card.checklist(items: List<Requirements.Item>) {
+        if (items.isEmpty()) return
+        example(items.joinToString("\n") { item ->
+            when (item.met()) {
+                true -> "✓ "
+                false -> "✗ "
+                null -> "○ "
+            } + plain(item.text())
+        })
+    }
+
+    /** For a boss fight: how far it got, stage by stage, and XP for a new stage. */
+    private fun Card.stageSection(quest: Quest, result: QuestResult) {
+        val stages = BossStages.of(quest)
+        if (stages.isEmpty()) return
+        val lines = stages.mapIndexed { k, stage -> (if (k < result.stage) "✓ " else "○ ") + stage.name() }
+        section("BOSS STAGES · ${result.stage} OF ${stages.size}" + if (result.stageXp > 0) "  (+${result.stageXp} XP)" else "", "")
+        example(lines.joinToString("\n"))
     }
 
     /** ★★☆ for a quest's stars. */

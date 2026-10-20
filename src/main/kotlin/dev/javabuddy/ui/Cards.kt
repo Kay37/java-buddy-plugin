@@ -115,10 +115,10 @@ class Card(private val accent: Color, private val background: Color) : JPanel() 
 
     fun title(text: String) = row(wrapping(text, JBUI.Fonts.label().deriveFont(Font.BOLD, JBUI.Fonts.label().size2D + 2f)), gapAfter = 6)
 
-    /** A bold small heading ("What it means") followed by wrapped text. */
+    /** A bold small heading ("What it means") followed by wrapped text (or nothing, when [text] is blank). */
     fun section(heading: String, text: String) {
         row(JLabel(heading).apply { font = JBUI.Fonts.smallFont().deriveFont(Font.BOLD); foreground = accent.darker() }, gapAfter = 2)
-        row(wrapping(text, JBUI.Fonts.label()), gapAfter = 8)
+        if (text.isNotBlank()) row(wrapping(text, JBUI.Fonts.label()), gapAfter = 8)
     }
 
     fun text(text: String, muted: Boolean = false) =

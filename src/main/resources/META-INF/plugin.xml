@@ -28,6 +28,7 @@
         <postStartupActivity implementation="dev.javabuddy.JavaBuddyStartup"/>
         <editorNotificationProvider implementation="dev.javabuddy.drills.DrillNotificationProvider"/>
         <editorNotificationProvider implementation="dev.javabuddy.quest.QuestNotificationProvider"/>
+        <codeInsight.lineMarkerProvider language="JAVA" implementationClass="dev.javabuddy.quest.QuestLineMarkerProvider"/>
         <localInspection language="JAVA"
                          shortName="JavaBuddyStyleCoach"
                          displayName="Style Coach tips"
