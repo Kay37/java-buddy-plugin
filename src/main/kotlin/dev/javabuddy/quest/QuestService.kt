@@ -46,6 +46,13 @@ import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.util.Key
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.EditorKind
+import com.intellij.openapi.editor.Inlay
+import com.intellij.openapi.editor.event.EditorMouseEvent
+import com.intellij.openapi.editor.event.EditorMouseListener
+import com.intellij.openapi.util.Disposer
 import com.intellij.ui.JBColor
 import dev.javacoach.engine.ai.BonusQuests
 import dev.javacoach.engine.ai.CoachAI
@@ -95,13 +102,11 @@ data class QuestState(
     val daily: DailyView? = null,
     /** AI-made quests the engine proved sound, saved in ~/.javacoach/bonus. */
     val bonus: List<Quest> = emptyList(),
-    /** The AI coach's latest reply per quest (or "thinking…" while it runs). */
-    val coach: Map<String, CoachView> = emptyMap(),
     /** The quest a bonus quest is being made like, while Claude writes and the engine checks it. */
     val makingBonus: String? = null,
 )
 
-/** The AI coach's reply, a plain-words problem (like "sign in first"), or null text while it's thinking. */
+/** The AI coach's reply, a plain-words problem (like "sign in first"), or null text while it's thinking. Shown by [CoachBubble]. */
 data class CoachView(val mode: CoachAI.Mode, val text: String?, val problem: String?, val filtered: Boolean)
 
 /** Today's quest, the topics of this week's mistakes (most common first), and days used this week. */
@@ -114,7 +119,7 @@ data class DailyView(val today: Today.TodayQuest?, val mistakeTopics: Map<String
  * dashboard see the same progress.
  */
 @Service(Service.Level.PROJECT)
-class QuestService(private val project: Project) {
+class QuestService(private val project: Project) : Disposable {
     private val _state = MutableStateFlow(QuestState(loadQuietly().first))
     val state: StateFlow<QuestState> = _state.asStateFlow()
     private val saving = Mutex()
@@ -122,7 +127,19 @@ class QuestService(private val project: Project) {
     init {
         // Loads the compiler ahead of time, so the first "Check my answer" is quicker.
         project.service<JavaBuddyScope>().cs.launch(Dispatchers.IO) { runCatching { QuestChecker.warmUp() } }
+        // Clicking the AI coach's bubble closes it.
+        EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(object : EditorMouseListener {
+            override fun mouseClicked(e: EditorMouseEvent) {
+                val inlay = e.inlay ?: return
+                if (e.editor.project == project && inlay.renderer is CoachBubble) {
+                    e.consume()
+                    Disposer.dispose(inlay)
+                }
+            }
+        }, this)
     }
+
+    override fun dispose() = Unit
 
     /** Reads the save file again, in case the command-line game changed it. */
     fun reload() {
@@ -138,6 +155,8 @@ class QuestService(private val project: Project) {
     /**
      * Asks the AI coach (Claude, through the learner's own claude tool). STUCK looks at their code and
      * the last check; PLAN talks about the plan they type in words. It asks; it never writes the code.
+     * The reply shows as a bubble in the quest file, under the line the last check pointed at (or the
+     * line the cursor is on), so the Java Buddy panel doesn't move.
      */
     fun askCoach(quest: Quest, mode: CoachAI.Mode) {
         val prompt = if (mode == CoachAI.Mode.PLAN) "Explain your plan in plain words: what will your code do, step by step?"
@@ -145,21 +164,54 @@ class QuestService(private val project: Project) {
         val words = Messages.showMultilineInputDialog(project, prompt, if (mode == CoachAI.Mode.PLAN) "Explain My Plan" else "Ask the AI Coach", "", null, null)
             ?: return
         if (mode == CoachAI.Mode.PLAN && words.isBlank()) return
-        val file = existingFile(quest)
+        open(quest)
+        val file = existingFile(quest) ?: return
+        val line = bubbleLine(quest, file)
         DailyLog.use("ai-coach")
+        showBubble(file, line, CoachView(mode, null, null, false))
         project.service<JavaBuddyScope>().cs.launch {
-            _state.update { it.copy(coach = it.coach + (quest.id() to CoachView(mode, null, null, false)), focus = quest.id()) }
-            withContext(Dispatchers.EDT) { showPanel() }
-            val code = file?.let { readAction { FileDocumentManager.getInstance().getDocument(it)?.text } }.orEmpty()
+            val code = readAction { FileDocumentManager.getInstance().getDocument(file)?.text }.orEmpty()
             val state = _state.value
             val reply = withContext(Dispatchers.IO) {
                 CoachAI.usual().help(quest, code, state.results[quest.id()]?.check, state.progress.hintsOpened(quest.id()), words, mode)
             }
-            _state.update { it.copy(coach = it.coach + (quest.id() to CoachView(mode, reply.text(), reply.problem(), reply.filtered()))) }
+            withContext(Dispatchers.EDT) { showBubble(file, line, CoachView(mode, reply.text(), reply.problem(), reply.filtered())) }
         }
     }
 
-    fun hideCoach(quest: Quest) = _state.update { it.copy(coach = it.coach - quest.id()) }
+    /** The line the bubble goes under: where the last check pointed, else the cursor's line in that file (0-based). */
+    private fun bubbleLine(quest: Quest, file: VirtualFile): Int {
+        val checked = _state.value.results[quest.id()]?.check?.line() ?: 0
+        if (checked > 0) return checked - 1
+        val editor = FileEditorManager.getInstance(project).selectedTextEditor
+        return if (editor != null && FileDocumentManager.getInstance().getFile(editor.document) == file) editor.caretModel.logicalPosition.line else 0
+    }
+
+    /**
+     * Puts [view] in the file's coach bubble (one per editor) under [line] (0-based), and scrolls to it.
+     * The bubble is updated in place when it's already on that line, and moved there otherwise.
+     * Used by quests and by right-click "Ask the AI Coach" in any Java file.
+     */
+    fun showBubble(file: VirtualFile, line: Int, view: CoachView) {
+        val document = FileDocumentManager.getInstance().getDocument(file) ?: return
+        val target = if (document.lineCount == 0) 0 else line.coerceIn(0, document.lineCount - 1)
+        val offset = if (document.lineCount == 0) 0 else document.getLineEndOffset(target)
+        for (editor in EditorFactory.getInstance().getEditors(document, project)) {
+            if (editor.isDisposed || editor.editorKind != EditorKind.MAIN_EDITOR) continue
+            var existing = editor.getUserData(BUBBLE)?.takeIf { it.isValid }
+            if (existing != null && document.getLineNumber(existing.offset) != target) {
+                Disposer.dispose(existing)
+                existing = null
+            }
+            val inlay = if (existing != null) {
+                existing.renderer.view = view
+                existing.update()
+                existing
+            }
+            else editor.inlayModel.addBlockElement(offset, true, false, 0, CoachBubble(view))?.also { editor.putUserData(BUBBLE, it) }
+            inlay?.bounds?.let { editor.contentComponent.scrollRectToVisible(it) }
+        }
+    }
 
     /** "More like this": Claude writes a new quest on the same idea; it's kept only if the engine proves it sound. */
     fun makeBonus(like: Quest) {
@@ -438,6 +490,7 @@ class QuestService(private val project: Project) {
         val COURSE: Course = StarterCourse.create()
         private val LOG = logger<QuestService>()
         private val MARK = Key.create<RangeHighlighter>("javaBuddy.questMark")
+        private val BUBBLE = Key.create<Inlay<CoachBubble>>("javaBuddy.coachBubble")
 
         private fun loadQuietly(): Pair<PlayerProgress, String?> = try {
             PlayerProgress.load(PlayerProgress.defaultFile()) to null

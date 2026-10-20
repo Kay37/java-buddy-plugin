@@ -11,6 +11,7 @@ import dev.javabuddy.errors.explainCompileError
 import dev.javabuddy.errors.explainCrash
 import dev.javabuddy.ui.BuddyColors
 import dev.javabuddy.ui.Card
+import dev.javabuddy.ui.keepScrollAt
 import dev.javabuddy.ui.CardList
 import dev.javabuddy.ui.heading
 import kotlinx.coroutines.Dispatchers
@@ -60,7 +61,7 @@ class DrillsPanel(private val project: Project) : JPanel(BorderLayout()), Dispos
         val shown = state.lastChecked to state.lastChecked?.let { state.outcomes[it] }
         val jumpToTop = shown != lastShownResult || state.running != null
         lastShownResult = shown
-        scroll.verticalScrollBar.value = if (jumpToTop) 0 else scrollPosition
+        scroll.keepScrollAt(if (jumpToTop) 0 else scrollPosition)
     }
 
     private fun introCard(state: DrillState): Card = Card(BuddyColors.HELP_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {

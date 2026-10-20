@@ -13,6 +13,7 @@ import dev.javabuddy.coach.richText
 import dev.javabuddy.pluralize
 import dev.javabuddy.ui.BuddyColors
 import dev.javabuddy.ui.Card
+import dev.javabuddy.ui.keepScrollAt
 import dev.javabuddy.ui.CardList
 import dev.javabuddy.ui.heading
 import dev.javacoach.engine.game.check.CheckResult
@@ -70,8 +71,6 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         if (focus != null) list.addCard(topCard(focus, state))
         val another = focus?.let { state.anotherWay[it.id()] }
         if (focus != null && another != null) list.addCard(anotherWayCard(focus, another))
-        val coach = focus?.let { state.coach[it.id()] }
-        if (focus != null && coach != null) list.addCard(coachCard(focus, coach))
         state.daily?.today?.let { list.addCard(todayCard(it)) }
         state.daily?.takeIf { it.mistakeTopics.isNotEmpty() }?.let { list.addCard(mistakesCard(it)) }
         list.addCard(playerCard(state))
@@ -92,7 +91,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
 
         // A new result or a newly focused quest jumps to the top; anything else keeps the scroll position.
         val top = Triple(state.focus, state.running, state.focus?.let { state.results[it] })
-        scroll.verticalScrollBar.value = if (top != lastShownTop) 0 else scrollPosition
+        scroll.keepScrollAt(if (top != lastShownTop) 0 else scrollPosition)
         lastShownTop = top
     }
 
@@ -365,28 +364,6 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         val lines = stages.mapIndexed { k, stage -> (if (k < result.stage) "✓ " else "○ ") + stage.name() }
         section("BOSS STAGES · ${result.stage} OF ${stages.size}" + if (result.stageXp > 0) "  (+${result.stageXp} XP)" else "", "")
         example(lines.joinToString("\n"))
-    }
-
-    /** The AI coach's reply (or "thinking…", or what to do first, like signing in). */
-    private fun coachCard(quest: Quest, view: CoachView): Card = Card(BuddyColors.CONCEPT_ACCENT, BuddyColors.CONCEPT_BACKGROUND).apply {
-        chip(if (view.mode == CoachAI.Mode.PLAN) "AI coach · your plan" else "AI coach")
-        when {
-            view.text == null && view.problem == null -> {
-                title("The coach is thinking…")
-                text("This takes a few seconds.", muted = true)
-            }
-            view.problem != null -> {
-                title("The AI coach can't answer yet")
-                text(view.problem)
-                text("The hints above still work without it.", muted = true)
-            }
-            else -> {
-                richText(view.text.orEmpty())
-                if (view.filtered) text("Part of the reply was held back because it gave away too much. That's on purpose.", muted = true)
-                text("The coach asks questions and points at ideas. It never writes your code.", muted = true)
-            }
-        }
-        links("Ask again" to { quests.askCoach(quest, view.mode) }, "Hide" to { quests.hideCoach(quest) })
     }
 
     private fun makingBonusCard(): Card = Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {

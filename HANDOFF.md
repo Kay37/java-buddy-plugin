@@ -16,7 +16,7 @@ The user approved overnight commits and pushes ("Feel free to commit and push un
 | 4. Progress Map | Tested headless on `C:\Users\kimba\pluralsight`: 8 repos, 14 commits, ideas and dates correct. **Not tried in the IDE yet.** |
 | 5. Memory Picture | Picture tested by painting a sample to PNG (light and dark). Debugger hookup **not tried yet**: nobody has debugged with it. |
 
-**New on 2026-10-19, local branch `coach-and-quest-tabs` (committed, not pushed, not merged):**
+**New on 2026-10-19, branch `coach-and-quest-tabs` (pushed 2026-10-20, not merged into main; ask first):**
 the Java Coach engine (`C:\Users\kimba\claude_JavaCoach`) inside Java Buddy, after a pre-mortem
 ("why would this be abandoned in a month?") pass. Tabs are now **Errors, Coach, Practice, Concepts,
 Progress, Memory**:
@@ -27,9 +27,19 @@ Progress, Memory**:
   picker, checklist, boss stages, stuck warm-up, report a check, AI coach, another way, gutter ▶ check,
   failing line marked. Dashboard via Tools > Open Java Coach Dashboard.
 - Mistakes (errors that stay, crashes), style counts and use are written once a day to `~/.javacoach`.
-**Nothing here has been seen on screen**: no screen access. The test IDE loads it with no errors.
-The AI coach and bonus quests need the user's one-time `claude` → `/login`.
-Version 0.1.0 (before all this) is installed in the user's own IntelliJ.
+**2026-10-20, after the user's first try-out** (this build is installed in their own IntelliJ):
+- AI coach replies are a bubble in the editor (`quest/CoachBubble.kt`, a block inlay; click closes it),
+  not a panel card. Right-click > **Ask the AI Coach** (`quest/AskCoachAction.kt`) works in any Java
+  file: quest files use the quest coach, other files the engine's `CoachAI.helpWithCode` (selection-aware).
+- Panels jumped to the bottom: each text box's caret moved to its end and Swing scrolled to it.
+  `Cards.kt` now pins carets (`stayPut`) and panels restore scroll with `keepScrollAt`.
+- Typing froze 5-7 s on 100+ line files: the engine's method regex backtracked on blanked comments.
+  Fixed in the engine; `StyleCoachInspection` also runs the check on a pooled thread and gives up
+  on `checkCanceled`, so typing never waits for it.
+- Style Coach on/off (`JavaBuddySettings.styleCoach`): Coach tab link and right-click > Java Buddy.
+- Installing into the user's IntelliJ: jars are locked while it runs. Wait until no `idea64` runs, then
+  swap `%APPDATA%\JetBrains\IntelliJIdea2026.2\plugins\java-buddy` (keep backups outside `plugins/`).
+Still not seen working: the AI coach with real Claude (needs `claude` → `/login`).
 
 Nothing in tools 2–5 has been seen running in the IDE: no screen access overnight. The test IDE
 loads the plugin with no errors in `idea.log`.

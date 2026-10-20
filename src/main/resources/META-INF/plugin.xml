@@ -44,7 +44,14 @@
     </projectListeners>
 
     <actions>
-        <!-- Editor right-click menu. -->
+        <!-- Editor right-click menu: at the top, so it's easy to find. -->
+        <action id="JavaBuddy.AskCoach"
+                class="dev.javabuddy.quest.AskCoachAction"
+                text="Ask the AI Coach"
+                description="Ask about this file or the lines you selected. The coach asks and points; it never writes your code."
+                icon="AllIcons.Actions.IntentionBulb">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
         <group id="JavaBuddy.Options" text="Java Buddy" popup="true">
             <action id="JavaBuddy.ToggleErrorBubbles"
                     class="dev.javabuddy.ToggleErrorBubblesAction"
@@ -54,6 +61,10 @@
                     class="dev.javabuddy.ToggleConceptHoverAction"
                     text="Explain Java Words When Hovering"
                     description="Show a short card when the mouse rests on a Java word like static or extends"/>
+            <action id="JavaBuddy.ToggleStyleCoach"
+                    class="dev.javabuddy.ToggleStyleCoachAction"
+                    text="Style Coach Tips"
+                    description="Check how your code is written: notes in the Coach tab and dotted tips under the code. Turn off to stop it running."/>
             <action id="JavaBuddy.ToggleCrashPopups"
                     class="dev.javabuddy.ToggleCrashPopupsAction"
                     text="Explain Crashes When a Program Stops"

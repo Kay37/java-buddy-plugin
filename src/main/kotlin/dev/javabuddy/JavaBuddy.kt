@@ -38,6 +38,12 @@ object JavaBuddySettings {
     private const val CRASH_POPUPS = "javaBuddy.crashPopups"
     private const val CONCEPT_HOVER = "javaBuddy.conceptHover"
     private const val TODAY_NOTE = "javaBuddy.todayNote"
+    private const val STYLE_COACH = "javaBuddy.styleCoach"
+
+    /** The Style Coach: the Coach tab's notes and the dotted tips under the code. Off means it doesn't run at all. */
+    var styleCoach: Boolean
+        get() = PropertiesComponent.getInstance().getBoolean(STYLE_COACH, true)
+        set(value) = PropertiesComponent.getInstance().setValue(STYLE_COACH, value, true)
 
     /** A small note with today's quest, once a day when a project opens. */
     var todayNote: Boolean

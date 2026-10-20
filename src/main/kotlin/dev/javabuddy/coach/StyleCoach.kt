@@ -17,6 +17,7 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import dev.javabuddy.JavaBuddyScope
+import dev.javabuddy.JavaBuddySettings
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.wm.ToolWindowManager
@@ -57,6 +58,9 @@ data class CoachNotes(
 class StyleCoach(private val project: Project) : Disposable {
     private val _notes = MutableStateFlow<CoachNotes?>(null)
     val notes: StateFlow<CoachNotes?> = _notes.asStateFlow()
+    private val _enabled = MutableStateFlow(JavaBuddySettings.styleCoach)
+    /** False when the learner turned the Style Coach off; then nothing is checked. */
+    val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
     private var started = false
     private var pending: Job? = null
 
@@ -81,7 +85,7 @@ class StyleCoach(private val project: Project) : Disposable {
         pending = project.service<JavaBuddyScope>().cs.launch {
             delay(delayMs)
             val file = withContext(Dispatchers.EDT) { selectedJavaFile() }
-            if (file == null) {
+            if (file == null || !_enabled.value) {
                 _notes.value = null
                 return@launch
             }
@@ -102,6 +106,17 @@ class StyleCoach(private val project: Project) : Disposable {
             catch (e: Exception) {
                 LOG.warn("The Style Coach failed on ${file.name}", e)
             }
+        }
+    }
+
+    /** Turns the Style Coach on or off in every open project: the Coach tab and the tips under the code. */
+    fun setEnabled(on: Boolean) {
+        JavaBuddySettings.styleCoach = on
+        ProjectManager.getInstance().openProjects.forEach {
+            val coach = it.service<StyleCoach>()
+            coach._enabled.value = on
+            coach.refresh(0)
+            DaemonCodeAnalyzer.getInstance(it).restart()
         }
     }
 

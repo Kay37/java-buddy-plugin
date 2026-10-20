@@ -11,6 +11,7 @@ import dev.javabuddy.JavaBuddyScope
 import dev.javabuddy.pluralize
 import dev.javabuddy.ui.BuddyColors
 import dev.javabuddy.ui.Card
+import dev.javabuddy.ui.keepScrollAt
 import dev.javabuddy.ui.CardList
 import dev.javabuddy.ui.emptyState
 import dev.javabuddy.quest.QuestService
@@ -19,6 +20,7 @@ import dev.javacoach.engine.style.Finding
 import dev.javacoach.engine.style.RuleFeedback
 import dev.javacoach.engine.style.Severity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
@@ -38,14 +40,24 @@ class CoachPanel(private val project: Project) : JPanel(BorderLayout()), Disposa
         add(scroll, BorderLayout.CENTER)
         coach.start()
         val job = project.service<JavaBuddyScope>().cs.launch {
-            coach.notes.collect { notes -> withContext(Dispatchers.EDT) { render(notes) } }
+            combine(coach.notes, coach.enabled) { notes, on -> notes to on }
+                .collect { (notes, on) -> withContext(Dispatchers.EDT) { render(notes, on) } }
         }
         Disposer.register(this) { job.cancel() }
     }
 
     private var lastFile: String? = null
 
-    private fun render(notes: CoachNotes?) {
+    private fun render(notes: CoachNotes?, on: Boolean) {
+        if (!on) {
+            list.removeAll()
+            list.addCard(offCard())
+            list.revalidate()
+            list.repaint()
+            scroll.keepScrollAt(0)
+            lastFile = null
+            return
+        }
         if (notes != null && isShowing) DailyLog.use("coach")
         val scrollPosition = scroll.verticalScrollBar.value
         list.removeAll()
@@ -62,7 +74,7 @@ class CoachPanel(private val project: Project) : JPanel(BorderLayout()), Disposa
         list.repaint()
         // Typing keeps the scroll position; a different file starts at the top.
         val file = notes?.file?.path
-        scroll.verticalScrollBar.value = if (file == lastFile) scrollPosition else 0
+        scroll.keepScrollAt(if (file == lastFile) scrollPosition else 0)
         lastFile = file
     }
 
@@ -83,7 +95,15 @@ class CoachPanel(private val project: Project) : JPanel(BorderLayout()), Disposa
             if (shown.isEmpty()) text("Nothing to say yet. Keep going!", muted = true)
             else if (clean) text("No bugs and nothing worth fixing. Nice! The tips below are small extras.", muted = true)
             text("The notes update a moment after you stop typing. Tips also show in the editor, dotted under the line. Press \"Not helpful\" on a tip to stop seeing that kind.", muted = true)
+            links("Turn the Style Coach off" to { coach.setEnabled(false) })
         }
+    }
+
+    private fun offCard(): Card = Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
+        chip("Style Coach · off")
+        title("The Style Coach is off")
+        text("It isn't reading your code: no notes here and no dotted tips under your lines. Everything else in Java Buddy still works.", muted = true)
+        links("Turn it back on" to { coach.setEnabled(true) })
     }
 
     private fun findingCard(notes: CoachNotes, finding: Finding): Card {

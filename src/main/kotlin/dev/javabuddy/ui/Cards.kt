@@ -22,10 +22,14 @@ import javax.swing.BoxLayout
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.JScrollPane
 import javax.swing.JTextArea
 import javax.swing.JTextPane
 import javax.swing.Scrollable
 import javax.swing.SwingConstants
+import javax.swing.SwingUtilities
+import javax.swing.text.DefaultCaret
+import javax.swing.text.JTextComponent
 import javax.swing.text.SimpleAttributeSet
 import javax.swing.text.StyleConstants
 
@@ -211,7 +215,26 @@ class Card(private val accent: Color, private val background: Color) : JPanel() 
         isFocusable = false
         border = null
         foreground = UIUtil.getLabelForeground()
-    }
+    }.stayPut()
+}
+
+/**
+ * Keeps a text box's hidden cursor at the start and stops it from moving. Otherwise Swing scrolls the
+ * whole panel to wherever the cursor ended up (the end of the last box), which jumped the list to the bottom.
+ */
+private fun <T : JTextComponent> T.stayPut(): T = apply {
+    caretPosition = 0
+    (caret as? DefaultCaret)?.updatePolicy = DefaultCaret.NEVER_UPDATE
+}
+
+/**
+ * Puts the list's scroll bar at [value] once the new cards are laid out, and once more after Swing's
+ * queued events, so a box or button that got focus meanwhile can't leave the list somewhere else.
+ */
+fun JScrollPane.keepScrollAt(value: Int) {
+    validate()
+    verticalScrollBar.value = value
+    SwingUtilities.invokeLater { verticalScrollBar.value = value }
 }
 
 /** A big friendly line for empty states, e.g. "No errors in Main.java". */

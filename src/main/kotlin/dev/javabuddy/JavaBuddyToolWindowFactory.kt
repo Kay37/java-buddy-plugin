@@ -120,6 +120,15 @@ class ToggleConceptHoverAction : DumbAwareToggleAction() {
     }
 }
 
+class ToggleStyleCoachAction : DumbAwareToggleAction() {
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
+    override fun isSelected(e: AnActionEvent) = JavaBuddySettings.styleCoach
+    override fun setSelected(e: AnActionEvent, state: Boolean) {
+        val project = e.project ?: ProjectManager.getInstance().openProjects.firstOrNull() ?: run { JavaBuddySettings.styleCoach = state; return }
+        project.service<StyleCoach>().setEnabled(state)
+    }
+}
+
 class ToggleCrashPopupsAction : DumbAwareToggleAction() {
     override fun getActionUpdateThread() = ActionUpdateThread.BGT
     override fun isSelected(e: AnActionEvent) = JavaBuddySettings.crashPopups

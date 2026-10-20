@@ -13,6 +13,16 @@ import dev.javacoach.engine.style.Finding
 import dev.javacoach.engine.style.RuleFeedback
 import dev.javacoach.engine.style.Severity
 import dev.javacoach.engine.style.StyleChecker
+import dev.javacoach.engine.style.StyleReport
+import dev.javabuddy.JavaBuddySettings
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.nio.file.Files
 
 /**
@@ -21,11 +31,12 @@ import java.nio.file.Files
  * Neither changes the code: the coach explains, the learner fixes.
  */
 class StyleCoachInspection : LocalInspectionTool() {
+    private val LOG = logger<StyleCoachInspection>()
 
     override fun checkFile(file: PsiFile, manager: InspectionManager, isOnTheFly: Boolean): Array<ProblemDescriptor>? {
-        if (!file.name.endsWith(".java")) return null
+        if (!file.name.endsWith(".java") || !JavaBuddySettings.styleCoach) return null
         val text = file.text
-        val findings = Feedback.current().visible(StyleChecker().check(text).findings())
+        val findings = Feedback.current().visible(checkStoppably(text)?.findings() ?: return null)
         val document = file.viewProvider.document ?: return null
         return findings.filter { it.severity() != Severity.GOOD && it.line() in 1..document.lineCount }.map { finding ->
             val lineIndex = finding.line() - 1
@@ -42,6 +53,32 @@ class StyleCoachInspection : LocalInspectionTool() {
             manager.createProblemDescriptor(file, TextRange(from, to), "Java Buddy: " + plain(finding.title()), type, isOnTheFly,
                 *fixes.toTypedArray())
         }.toTypedArray()
+    }
+
+    /**
+     * Runs the engine on another thread and waits in small steps. IntelliJ stops this pass as soon as
+     * the learner types; then this lets go at once, so typing never waits for the check to finish.
+     */
+    private fun checkStoppably(text: String): StyleReport? {
+        val future = ApplicationManager.getApplication().executeOnPooledThread(Callable { StyleChecker().check(text) })
+        try {
+            while (true) {
+                ProgressManager.checkCanceled()
+                try {
+                    return future.get(20, TimeUnit.MILLISECONDS)
+                }
+                catch (_: TimeoutException) {
+                }
+            }
+        }
+        catch (e: ProcessCanceledException) {
+            future.cancel(true)
+            throw e
+        }
+        catch (e: ExecutionException) {
+            LOG.warn("The Style Coach failed on a file", e.cause)
+            return null
+        }
     }
 
     /** Opens the Coach tab, which explains the tip with an example. */
