@@ -28,6 +28,13 @@
         <postStartupActivity implementation="dev.javabuddy.JavaBuddyStartup"/>
         <editorNotificationProvider implementation="dev.javabuddy.drills.DrillNotificationProvider"/>
         <editorNotificationProvider implementation="dev.javabuddy.quest.QuestNotificationProvider"/>
+        <localInspection language="JAVA"
+                         shortName="JavaBuddyStyleCoach"
+                         displayName="Style Coach tips"
+                         groupName="Java Buddy"
+                         enabledByDefault="true"
+                         level="WEAK WARNING"
+                         implementationClass="dev.javabuddy.coach.StyleCoachInspection"/>
     </extensions>
 
     <projectListeners>
@@ -50,6 +57,10 @@
                     class="dev.javabuddy.ToggleCrashPopupsAction"
                     text="Explain Crashes When a Program Stops"
                     description="Pop up a plain-English explanation when a run ends with an exception"/>
+            <action id="JavaBuddy.ToggleTodayNote"
+                    class="dev.javabuddy.ToggleTodayNoteAction"
+                    text="Suggest Today's Quest Each Day"
+                    description="Once a day, when a project opens, suggest one small quest (about 10 minutes)"/>
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </group>
         <action id="JavaBuddy.OpenDashboard"

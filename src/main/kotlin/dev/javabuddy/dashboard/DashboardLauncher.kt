@@ -11,6 +11,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import dev.javabuddy.daily.DailyLog
 import dev.javabuddy.notifyUser
 import dev.javacoach.dashboard.Dashboard
 import dev.javacoach.engine.game.progress.PlayerProgress
@@ -26,6 +27,7 @@ class DashboardLauncher : Disposable {
     private var dashboard: Dashboard? = null
 
     fun open(project: Project?) {
+        DailyLog.use("dashboard")
         ApplicationManager.getApplication().executeOnPooledThread {
             val url = try {
                 "http://localhost:" + running().port() + "/"

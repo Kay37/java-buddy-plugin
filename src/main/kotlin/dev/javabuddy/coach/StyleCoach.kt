@@ -17,8 +17,15 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import dev.javabuddy.JavaBuddyScope
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.wm.ToolWindowManager
+import dev.javabuddy.quest.QuestService
+import dev.javacoach.engine.daily.WarmUps
+import dev.javacoach.engine.game.progress.PlayerProgress
+import dev.javabuddy.daily.DailyLog
 import dev.javacoach.engine.style.Finding
+import dev.javacoach.engine.style.Severity
 import dev.javacoach.engine.style.RuleFeedback
 import dev.javacoach.engine.style.StyleChecker
 import dev.javacoach.engine.style.StyleReport
@@ -33,7 +40,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** The Style Coach's notes on one file. [visible] leaves out tips the learner muted with "Not helpful". */
-data class CoachNotes(val file: VirtualFile, val report: StyleReport, val visible: List<Finding>, val muted: Set<String>)
+data class CoachNotes(
+    val file: VirtualFile,
+    val report: StyleReport,
+    val visible: List<Finding>,
+    val muted: Set<String>,
+    /** A short quest on an idea this file uses, or null. */
+    val warmUp: WarmUps.WarmUp? = null,
+)
 
 /**
  * Runs the Java Coach engine's Style Coach on the Java file being edited: when another file is
@@ -75,7 +89,12 @@ class StyleCoach(private val project: Project) : Disposable {
             try {
                 val report = withContext(Dispatchers.Default) { StyleChecker().check(code) }
                 val feedback = withContext(Dispatchers.IO) { RuleFeedback.load(RuleFeedback.defaultFile()) }
-                _notes.value = CoachNotes(file, report, feedback.visible(report.findings()), feedback.muted())
+                val warmUp = withContext(Dispatchers.IO) {
+                    runCatching { WarmUps.forCode(code, QuestService.COURSE, PlayerProgress.load(PlayerProgress.defaultFile())).orElse(null) }.getOrNull()
+                }
+                val visible = feedback.visible(report.findings())
+                _notes.value = CoachNotes(file, report, visible, feedback.muted(), warmUp)
+                DailyLog.style(file.path, visible.count { it.severity() == Severity.BUG || it.severity() == Severity.WARN })
             }
             catch (e: CancellationException) {
                 throw e
@@ -101,8 +120,17 @@ class StyleCoach(private val project: Project) : Disposable {
             catch (e: Exception) {
                 LOG.warn("Couldn't save Style Coach feedback", e)
             }
-            ProjectManager.getInstance().openProjects.forEach { it.service<StyleCoach>().refresh(0) }
+            ProjectManager.getInstance().openProjects.forEach {
+                it.service<StyleCoach>().refresh(0)
+                // Redraws the editor's dotted tips, so a hidden kind disappears there too.
+                DaemonCodeAnalyzer.getInstance(it).restart()
+            }
         }
+    }
+
+    fun showPanel() {
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Java Buddy") ?: return
+        toolWindow.show { toolWindow.contentManager.findContent(TAB_NAME)?.let { toolWindow.contentManager.setSelectedContent(it) } }
     }
 
     fun navigate(file: VirtualFile, line: Int) {

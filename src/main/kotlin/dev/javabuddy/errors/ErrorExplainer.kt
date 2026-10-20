@@ -28,6 +28,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.util.PsiTreeUtil
+import dev.javabuddy.daily.DailyLog
 import dev.javabuddy.JavaBuddySettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -138,6 +139,11 @@ class ErrorExplainer(private val project: Project, private val cs: CoroutineScop
         val errors = found.values.sortedBy { it.offset }
         _fileErrors.value = FileErrors(file, errors)
         showBubbles(editor, errors)
+        // Into the mistakes notebook: known errors that stayed after typing paused on their line.
+        val (editedLine, editedAt) = lastEdit ?: (-1 to 0L)
+        val typingRecently = System.currentTimeMillis() - editedAt < TYPING_PAUSE_MS
+        errors.filter { it.explanation != null && !(typingRecently && it.line == editedLine) }
+            .forEach { DailyLog.mistake("error", it.explanation!!.title) }
     }
 
     /** For "Java doesn't know 'totl'": adds "Did you mean 'total'?" when a similar name exists in the file. */
@@ -188,6 +194,7 @@ class ErrorExplainer(private val project: Project, private val cs: CoroutineScop
 
     fun reportCrash(crash: Crash?) {
         _crash.value = crash
+        if (crash != null) DailyLog.mistake("crash", crash.exception.substringAfterLast('.') + ": " + crash.explanation.title)
     }
 
     fun showPanel() {

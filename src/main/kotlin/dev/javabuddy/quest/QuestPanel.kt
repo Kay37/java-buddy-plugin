@@ -18,6 +18,8 @@ import dev.javabuddy.ui.heading
 import dev.javacoach.engine.game.check.CheckResult
 import dev.javacoach.engine.game.model.Quest
 import dev.javacoach.engine.game.model.QuestKind
+import dev.javacoach.engine.daily.Today
+import dev.javacoach.engine.daily.WarmUps
 import dev.javacoach.engine.game.progress.Achievements
 import dev.javacoach.engine.game.progress.XpRules
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +57,8 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         if (focus != null) list.addCard(topCard(focus, state))
         val another = focus?.let { state.anotherWay[it.id()] }
         if (focus != null && another != null) list.addCard(anotherWayCard(focus, another))
+        state.daily?.today?.let { list.addCard(todayCard(it)) }
+        state.daily?.takeIf { it.mistakeTopics.isNotEmpty() }?.let { list.addCard(mistakesCard(it)) }
         list.addCard(playerCard(state))
 
         for (level in QuestService.COURSE.levels()) {
@@ -92,7 +96,29 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             muted = true,
         )
         state.saveProblem?.let { text(it) }
+        state.daily?.let { text("You used Java Buddy on ${it.daysUsed} of the last 7 days.", muted = true) }
         links("Open the dashboard in your browser" to { service<DashboardLauncher>().open(null) })
+    }
+
+    /** One small quest a day, picked from recent mistakes, a weak topic, or what's next. */
+    private fun todayCard(today: Today.TodayQuest): Card {
+        val quest = today.quest()
+        val card = if (today.done()) Card(BuddyColors.GOOD_ACCENT, BuddyColors.GOOD_BACKGROUND) else Card(BuddyColors.HELP_ACCENT, BuddyColors.HELP_BACKGROUND)
+        return card.apply {
+            chip(if (today.done()) "Today's quest: done ✓" else "Today's quest · about ${today.minutes()} min")
+            title(quest.title())
+            text(if (today.done()) "That's today's practice done. See you tomorrow!" else today.reason())
+            if (!today.done()) links("Start today's quest" to { quests.startToday() })
+        }
+    }
+
+    /** What the learner's own errors and crashes this week were about, with a quest per topic. */
+    private fun mistakesCard(daily: DailyView): Card = Card(BuddyColors.CRASH_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
+        chip("Your mistakes this week")
+        text("From the red errors and crashes in your own code. Everyone makes these; practising the idea makes them rarer.", muted = true)
+        daily.mistakeTopics.entries.take(4).forEach { (topic, count) ->
+            text("${WarmUps.name(topic).replaceFirstChar { it.uppercase() }}: ${pluralize(count, "time")}")
+        }
     }
 
     private fun kindColors(kind: QuestKind): Card = when (kind) {

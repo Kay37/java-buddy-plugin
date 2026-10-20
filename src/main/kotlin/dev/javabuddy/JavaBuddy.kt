@@ -37,6 +37,12 @@ object JavaBuddySettings {
     private const val ERROR_BUBBLES = "javaBuddy.errorBubbles"
     private const val CRASH_POPUPS = "javaBuddy.crashPopups"
     private const val CONCEPT_HOVER = "javaBuddy.conceptHover"
+    private const val TODAY_NOTE = "javaBuddy.todayNote"
+
+    /** A small note with today's quest, once a day when a project opens. */
+    var todayNote: Boolean
+        get() = PropertiesComponent.getInstance().getBoolean(TODAY_NOTE, true)
+        set(value) = PropertiesComponent.getInstance().setValue(TODAY_NOTE, value, true)
 
     /** Plain-English bubbles under lines with a red error. */
     var errorBubbles: Boolean

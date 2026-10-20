@@ -19,6 +19,7 @@ import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotifications
+import dev.javabuddy.daily.DailyLog
 import dev.javabuddy.JavaBuddyScope
 import dev.javabuddy.notifyUser
 import dev.javabuddy.practice.PracticePanel
@@ -89,6 +90,7 @@ class DrillService(private val project: Project) {
     }
 
     fun check(drill: Drill) {
+        DailyLog.use("drill")
         if (_state.value.running != null) return
         // Find the file here, outside any read lock: finding a scratch file may touch the disk.
         val file = existingFile(drill) ?: return open(drill)

@@ -6,12 +6,15 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.components.JBScrollPane
+import dev.javabuddy.daily.DailyLog
 import dev.javabuddy.JavaBuddyScope
 import dev.javabuddy.pluralize
 import dev.javabuddy.ui.BuddyColors
 import dev.javabuddy.ui.Card
 import dev.javabuddy.ui.CardList
 import dev.javabuddy.ui.emptyState
+import dev.javabuddy.quest.QuestService
+import dev.javacoach.engine.daily.WarmUps
 import dev.javacoach.engine.style.Finding
 import dev.javacoach.engine.style.RuleFeedback
 import dev.javacoach.engine.style.Severity
@@ -23,7 +26,7 @@ import javax.swing.JPanel
 import javax.swing.ScrollPaneConstants
 
 /** The "Coach" tab: the Style Coach's notes on how the open Java file is written, bugs first. */
-class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
+class CoachPanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
     private val coach = project.service<StyleCoach>()
     private val list = CardList()
     private val scroll = JBScrollPane(list).apply {
@@ -43,6 +46,7 @@ class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
     private var lastFile: String? = null
 
     private fun render(notes: CoachNotes?) {
+        if (notes != null && isShowing) DailyLog.use("coach")
         val scrollPosition = scroll.verticalScrollBar.value
         list.removeAll()
         if (notes == null) {
@@ -50,6 +54,7 @@ class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         }
         else {
             list.addCard(summaryCard(notes))
+            notes.warmUp?.let { list.addCard(warmUpCard(it)) }
             notes.visible.forEach { list.addCard(findingCard(notes, it)) }
             if (notes.muted.isNotEmpty()) list.addCard(mutedCard(notes.muted))
         }
@@ -100,6 +105,18 @@ class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             }
             links(*votes.toTypedArray())
         }
+    }
+
+    private fun warmUpCard(warmUp: WarmUps.WarmUp): Card = Card(BuddyColors.PROGRESS_ACCENT, BuddyColors.PROGRESS_BACKGROUND).apply {
+        val quest = warmUp.quest()
+        chip(if (warmUp.replay()) "Replay for a star" else "Warm-up quest")
+        title(quest.title())
+        text(warmUp.reason())
+        links((if (warmUp.replay()) "Replay it" else "Start the warm-up") to {
+            val quests = project.service<QuestService>()
+            quests.open(quest)
+            quests.focus(quest)
+        })
     }
 
     private fun mutedCard(muted: Set<String>): Card = Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {

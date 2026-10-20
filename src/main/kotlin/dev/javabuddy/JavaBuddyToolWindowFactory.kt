@@ -25,6 +25,14 @@ import dev.javabuddy.progress.ProgressService
 import dev.javabuddy.errors.ErrorExplainer
 import dev.javabuddy.errors.ErrorsPanel
 import com.intellij.openapi.Disposable
+import com.intellij.ide.util.PropertiesComponent
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationType
+import dev.javabuddy.quest.QuestService
+import dev.javacoach.engine.daily.MistakeNotebook
+import dev.javacoach.engine.daily.Today
+import dev.javacoach.engine.game.progress.PlayerProgress
+import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.swing.JComponent
@@ -45,7 +53,7 @@ class JavaBuddyToolWindowFactory : ToolWindowFactory, DumbAware {
     }
 }
 
-/** Starts watching editors for errors and for hovered Java words when a project opens. */
+/** Starts watching editors for errors and for hovered Java words when a project opens, and offers today's quest. */
 class JavaBuddyStartup : ProjectActivity {
     override suspend fun execute(project: Project) {
         withContext(Dispatchers.EDT) {
@@ -53,6 +61,44 @@ class JavaBuddyStartup : ProjectActivity {
             project.service<ConceptCards>().start()
             project.service<MemoryService>().start()
         }
+        offerTodaysQuest(project)
+    }
+
+    /** Once a day, the first time a project opens: a small note with today's quest and a Start button. */
+    private suspend fun offerTodaysQuest(project: Project) {
+        if (!JavaBuddySettings.todayNote) return
+        val date = LocalDate.now().toString()
+        val settings = PropertiesComponent.getInstance()
+        if (settings.getValue(TODAY_SHOWN) == date) return
+        val today = withContext(Dispatchers.IO) {
+            runCatching {
+                Today.get(QuestService.COURSE, PlayerProgress.load(PlayerProgress.defaultFile()),
+                    MistakeNotebook.load(MistakeNotebook.defaultFile()), LocalDate.now(), Today.defaultFile()).orElse(null)
+            }.getOrNull()
+        } ?: return
+        if (today.done()) return
+        settings.setValue(TODAY_SHOWN, date)
+        notifyUser(
+            project, NotificationType.INFORMATION,
+            "Today's quest: ${today.quest().title()} (about ${today.minutes()} min)",
+            today.reason(),
+            listOf(
+                NotificationAction.createSimpleExpiring("Start") { project.service<QuestService>().startToday() },
+                NotificationAction.createSimpleExpiring("Not today") { },
+            ),
+        )
+    }
+
+    private companion object {
+        const val TODAY_SHOWN = "javaBuddy.today.shown"
+    }
+}
+
+class ToggleTodayNoteAction : DumbAwareToggleAction() {
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
+    override fun isSelected(e: AnActionEvent) = JavaBuddySettings.todayNote
+    override fun setSelected(e: AnActionEvent, state: Boolean) {
+        JavaBuddySettings.todayNote = state
     }
 }
 

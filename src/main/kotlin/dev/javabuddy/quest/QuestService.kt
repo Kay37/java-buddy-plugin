@@ -19,6 +19,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotifications
+import dev.javabuddy.daily.DailyLog
 import dev.javabuddy.JavaBuddyScope
 import dev.javabuddy.notifyUser
 import dev.javabuddy.practice.PracticePanel
@@ -31,6 +32,9 @@ import dev.javacoach.engine.game.model.Quest
 import dev.javacoach.engine.game.progress.Award
 import dev.javacoach.engine.game.progress.PlayerProgress
 import dev.javacoach.engine.game.review.AnotherWay
+import dev.javacoach.engine.daily.MistakeNotebook
+import dev.javacoach.engine.daily.Today
+import dev.javacoach.engine.daily.UsageLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,7 +64,11 @@ data class QuestState(
     val focus: String? = null,
     val saveProblem: String? = null,
     val anotherWay: Map<String, AnotherWayView> = emptyMap(),
+    val daily: DailyView? = null,
 )
+
+/** Today's quest, the topics of this week's mistakes (most common first), and days used this week. */
+data class DailyView(val today: Today.TodayQuest?, val mistakeTopics: Map<String, Int>, val daysUsed: Int)
 
 /**
  * Plays Java Quest, the Java Coach engine's game, inside the IDE. Quest files are scratch files in
@@ -83,7 +91,31 @@ class QuestService(private val project: Project) {
     fun reload() {
         project.service<JavaBuddyScope>().cs.launch {
             val (progress, problem) = withContext(Dispatchers.IO) { loadQuietly() }
-            _state.update { it.copy(progress = progress, saveProblem = problem) }
+            val daily = withContext(Dispatchers.IO) { daily(progress) }
+            _state.update { it.copy(progress = progress, saveProblem = problem, daily = daily) }
+        }
+    }
+
+    /** Today's quest and this week's mistakes and use, read from the engine's daily files. */
+    private fun daily(progress: PlayerProgress): DailyView? = runCatching {
+        val book = MistakeNotebook.load(MistakeNotebook.defaultFile())
+        val today = LocalDate.now()
+        DailyView(
+            Today.get(COURSE, progress, book, today, Today.defaultFile()).orElse(null),
+            book.topics(today, 7),
+            UsageLog.load(UsageLog.defaultFile()).daysUsed(today, 7),
+        )
+    }.onFailure { LOG.info("Couldn't read the daily files: ${it.message}") }.getOrNull()
+
+    /** Opens today's quest, from the morning note or the Today card. */
+    fun startToday() {
+        project.service<JavaBuddyScope>().cs.launch {
+            val today = _state.value.daily?.today ?: withContext(Dispatchers.IO) { daily(_state.value.progress) }?.today ?: return@launch
+            DailyLog.use("today")
+            withContext(Dispatchers.EDT) {
+                open(today.quest())
+                focus(today.quest())
+            }
         }
     }
 
@@ -162,6 +194,7 @@ class QuestService(private val project: Project) {
     }
 
     fun check(quest: Quest) {
+        DailyLog.use("quest")
         if (_state.value.running != null || !isUnlocked(quest)) return
         // Find the file here, outside any read lock: finding a scratch file may touch the disk.
         val file = existingFile(quest) ?: return open(quest)
@@ -203,7 +236,10 @@ class QuestService(private val project: Project) {
             it.recordTry(quest.id())
             if (check.isPassed) award = it.complete(COURSE, quest, check.styleClean(), LocalDate.now())
         }
-        if (progress != null) _state.update { it.copy(progress = progress) }
+        if (progress != null) {
+            val daily = withContext(Dispatchers.IO) { daily(progress) }
+            _state.update { it.copy(progress = progress, daily = daily) }
+        }
         return QuestResult(check, award)
     }
 
