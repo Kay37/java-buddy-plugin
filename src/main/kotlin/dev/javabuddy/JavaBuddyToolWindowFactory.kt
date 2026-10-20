@@ -61,6 +61,7 @@ class JavaBuddyStartup : ProjectActivity {
             project.service<ConceptCards>().start()
             project.service<MemoryService>().start()
         }
+        runCatching { QuestService.useProjectJdk(project) }
         offerTodaysQuest(project)
     }
 

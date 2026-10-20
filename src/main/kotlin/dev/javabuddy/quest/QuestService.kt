@@ -26,6 +26,9 @@ import dev.javabuddy.practice.PracticePanel
 import dev.javabuddy.practice.PracticeView
 import dev.javacoach.engine.game.check.CheckResult
 import dev.javacoach.engine.game.check.QuestChecker
+import dev.javacoach.engine.game.check.Jdks
+import com.intellij.openapi.roots.ProjectRootManager
+import java.nio.file.Path
 import dev.javacoach.engine.game.content.StarterCourse
 import dev.javacoach.engine.game.model.Course
 import dev.javacoach.engine.game.model.Quest
@@ -352,6 +355,7 @@ class QuestService(private val project: Project) {
     }
 
     private suspend fun runCheck(quest: Quest, answer: String): QuestResult {
+        useProjectJdk(project)
         val check = try {
             withContext(Dispatchers.IO) {
                 val checker = QuestChecker()
@@ -463,6 +467,20 @@ class QuestService(private val project: Project) {
             private set
 
         fun isBonus(quest: Quest) = quest.id().startsWith("bonus-")
+
+        @Volatile private var jdkHome: String? = null
+
+        /**
+         * IntelliJ's own Java (the JetBrains Runtime) has no compiler for plugins, so the quest checker
+         * runs an installed JDK's javac. This points it at the project's JDK first (the engine checks
+         * it's 17+ and otherwise finds one by itself: JAVA_HOME, install folders, ~/.jdks).
+         */
+        suspend fun useProjectJdk(project: Project) {
+            val home = readAction { ProjectRootManager.getInstance(project).projectSdk?.homePath } ?: return
+            if (home == jdkHome) return
+            jdkHome = home
+            Jdks.setJdkHome(Path.of(home))
+        }
 
         /** A course quest or a bonus quest, by id. */
         fun quest(id: String): Quest? = COURSE.quest(id).orElse(null) ?: BONUS.firstOrNull { it.id() == id }
