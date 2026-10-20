@@ -41,6 +41,8 @@
           Override with -Dcoach.engine.jar=... if the folder moves.
         -->
         <coach.engine.jar>${user.home}/claude_JavaCoach/coach-engine/target/coach-engine-0.1.0.jar</coach.engine.jar>
+        <!-- The Java Coach web dashboard, started inside the IDE by Tools > Open Java Coach Dashboard. -->
+        <coach.dashboard.jar>${user.home}/claude_JavaCoach/coach-dashboard/target/coach-dashboard-0.1.0.jar</coach.dashboard.jar>
     </properties>
 
     <dependencies>
@@ -50,6 +52,13 @@
             <version>0.1.0</version>
             <scope>system</scope>
             <systemPath>${coach.engine.jar}</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>dev.javacoach</groupId>
+            <artifactId>coach-dashboard</artifactId>
+            <version>0.1.0</version>
+            <scope>system</scope>
+            <systemPath>${coach.dashboard.jar}</systemPath>
         </dependency>
     </dependencies>
 
@@ -91,6 +100,7 @@
                                 <copy file="${project.build.directory}/${project.build.finalName}.jar"
                                       todir="${sandbox.dir}/plugins/${plugin.dir.name}/lib"/>
                                 <copy file="${coach.engine.jar}" todir="${sandbox.dir}/plugins/${plugin.dir.name}/lib"/>
+                                <copy file="${coach.dashboard.jar}" todir="${sandbox.dir}/plugins/${plugin.dir.name}/lib"/>
                             </target>
                         </configuration>
                     </execution>

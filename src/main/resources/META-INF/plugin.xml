@@ -52,5 +52,11 @@
                     description="Pop up a plain-English explanation when a run ends with an exception"/>
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </group>
+        <action id="JavaBuddy.OpenDashboard"
+                class="dev.javabuddy.dashboard.OpenDashboardAction"
+                text="Open Java Coach Dashboard"
+                description="Open your quests, stars and badges in the browser">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
     </actions>
 </idea-plugin>

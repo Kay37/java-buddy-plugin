@@ -3,6 +3,7 @@ package dev.javabuddy.quest
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
+import dev.javabuddy.dashboard.DashboardLauncher
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.components.JBScrollPane
@@ -91,6 +92,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             muted = true,
         )
         state.saveProblem?.let { text(it) }
+        links("Open the dashboard in your browser" to { service<DashboardLauncher>().open(null) })
     }
 
     private fun kindColors(kind: QuestKind): Card = when (kind) {

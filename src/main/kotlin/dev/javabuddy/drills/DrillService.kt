@@ -18,10 +18,11 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.EditorNotifications
 import dev.javabuddy.JavaBuddyScope
 import dev.javabuddy.notifyUser
+import dev.javabuddy.practice.PracticePanel
+import dev.javabuddy.practice.PracticeView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -132,12 +133,8 @@ class DrillService(private val project: Project) {
 
     fun isPassed(drill: Drill) = drill.className in _state.value.passed
 
-    fun showPanel() {
-        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID) ?: return
-        toolWindow.show {
-            toolWindow.contentManager.findContent(TAB_NAME)?.let { toolWindow.contentManager.setSelectedContent(it) }
-        }
-    }
+    /** Drills live in the Practice tab now, next to Quests. */
+    fun showPanel() = project.service<PracticeView>().show(PracticePanel.Page.DRILLS)
 
     private fun existingFile(drill: Drill): VirtualFile? =
         runCatching { ScratchFileService.getInstance().findFile(ScratchRootType.getInstance(), drill.fileName, ScratchFileService.Option.existing_only) }

@@ -18,5 +18,9 @@
             <source>${coach.engine.jar}</source>
             <outputDirectory>${plugin.dir.name}/lib</outputDirectory>
         </file>
+        <file>
+            <source>${coach.dashboard.jar}</source>
+            <outputDirectory>${plugin.dir.name}/lib</outputDirectory>
+        </file>
     </files>
 </assembly>

@@ -18,11 +18,11 @@ import com.intellij.openapi.fileTypes.PlainTextLanguage
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.EditorNotifications
 import dev.javabuddy.JavaBuddyScope
-import dev.javabuddy.drills.DrillService
 import dev.javabuddy.notifyUser
+import dev.javabuddy.practice.PracticePanel
+import dev.javabuddy.practice.PracticeView
 import dev.javacoach.engine.game.check.CheckResult
 import dev.javacoach.engine.game.check.QuestChecker
 import dev.javacoach.engine.game.content.StarterCourse
@@ -240,12 +240,8 @@ class QuestService(private val project: Project) {
         OpenFileDescriptor(project, file, (line - 1).coerceAtLeast(0), 0).navigate(true)
     }
 
-    fun showPanel() {
-        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(DrillService.TOOL_WINDOW_ID) ?: return
-        toolWindow.show {
-            toolWindow.contentManager.findContent(TAB_NAME)?.let { toolWindow.contentManager.setSelectedContent(it) }
-        }
-    }
+    /** Quests live in the Practice tab, next to Drills. */
+    fun showPanel() = project.service<PracticeView>().show(PracticePanel.Page.QUESTS)
 
     private fun existingFile(quest: Quest): VirtualFile? =
         runCatching { ScratchFileService.getInstance().findFile(ScratchRootType.getInstance(), scratchPath(quest), ScratchFileService.Option.existing_only) }

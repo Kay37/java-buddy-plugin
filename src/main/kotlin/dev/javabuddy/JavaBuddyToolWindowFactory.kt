@@ -17,43 +17,31 @@ import dev.javabuddy.coach.CoachPanel
 import dev.javabuddy.coach.StyleCoach
 import dev.javabuddy.concepts.ConceptCards
 import dev.javabuddy.concepts.ConceptsPanel
-import dev.javabuddy.drills.DrillService
-import dev.javabuddy.drills.DrillsPanel
 import dev.javabuddy.memory.MemoryPanel
 import dev.javabuddy.memory.MemoryService
+import dev.javabuddy.practice.PracticePanel
 import dev.javabuddy.progress.ProgressPanel
 import dev.javabuddy.progress.ProgressService
-import dev.javabuddy.quest.QuestPanel
-import dev.javabuddy.quest.QuestService
 import dev.javabuddy.errors.ErrorExplainer
 import dev.javabuddy.errors.ErrorsPanel
+import com.intellij.openapi.Disposable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import javax.swing.JComponent
 
-/** The Java Buddy side panel. Each learning tool gets its own tab. */
+/** The Java Buddy side panel. Each learning tool gets its own tab; the everyday ones come first. */
 class JavaBuddyToolWindowFactory : ToolWindowFactory, DumbAware {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val errors = ErrorsPanel(project)
-        Disposer.register(toolWindow.disposable, errors)
-        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(errors, "Errors", false))
-        val concepts = ConceptsPanel(project)
-        Disposer.register(toolWindow.disposable, concepts)
-        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(concepts, ConceptCards.TAB_NAME, false))
-        val drills = DrillsPanel(project)
-        Disposer.register(toolWindow.disposable, drills)
-        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(drills, DrillService.TAB_NAME, false))
-        val progress = ProgressPanel(project)
-        Disposer.register(toolWindow.disposable, progress)
-        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(progress, ProgressService.TAB_NAME, false))
-        val memory = MemoryPanel(project)
-        Disposer.register(toolWindow.disposable, memory)
-        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(memory, MemoryService.TAB_NAME, false))
-        val coach = CoachPanel(project)
-        Disposer.register(toolWindow.disposable, coach)
-        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(coach, StyleCoach.TAB_NAME, false))
-        val quest = QuestPanel(project)
-        Disposer.register(toolWindow.disposable, quest)
-        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(quest, QuestService.TAB_NAME, false))
+        fun tab(panel: JComponent, name: String) {
+            if (panel is Disposable) Disposer.register(toolWindow.disposable, panel)
+            toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(panel, name, false))
+        }
+        tab(ErrorsPanel(project), "Errors")
+        tab(CoachPanel(project), StyleCoach.TAB_NAME)
+        tab(PracticePanel(project), PracticePanel.TAB_NAME)
+        tab(ConceptsPanel(project), ConceptCards.TAB_NAME)
+        tab(ProgressPanel(project), ProgressService.TAB_NAME)
+        tab(MemoryPanel(project), MemoryService.TAB_NAME)
     }
 }
 
