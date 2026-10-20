@@ -16,6 +16,13 @@ The user approved overnight commits and pushes ("Feel free to commit and push un
 | 4. Progress Map | Tested headless on `C:\Users\kimba\pluralsight`: 8 repos, 14 commits, ideas and dates correct. **Not tried in the IDE yet.** |
 | 5. Memory Picture | Picture tested by painting a sample to PNG (light and dark). Debugger hookup **not tried yet**: nobody has debugged with it. |
 
+**New on 2026-10-19 (not committed yet):** two more tabs that use the Java Coach engine
+(`C:\Users\kimba\claude_JavaCoach`): **Coach** (style tips on the open Java file) and **Quest**
+(Java Quest: 30 quests in 6 levels through Workbook 2a, XP, ranks, hints that cost XP, stars, badges,
+streak freezes). Not tried by the user yet. The same game also runs in the engine folder's web
+dashboard (`coach-dashboard`), sharing one save file.
+Version 0.1.0 was installed into the user's own IntelliJ the same day (before these tabs).
+
 Nothing in tools 2–5 has been seen running in the IDE: no screen access overnight. The test IDE
 loads the plugin with no errors in `idea.log`.
 

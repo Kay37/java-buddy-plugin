@@ -34,7 +34,24 @@
         <kotlin.compiler.languageVersion>2.4</kotlin.compiler.languageVersion>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!--
+          The Java Coach engine (Style Coach, Java Quest), a plain Java 17 jar built in its own
+          folder. Build it there first (mvn package). It ships inside the plugin, next to our jar.
+          Override with -Dcoach.engine.jar=... if the folder moves.
+        -->
+        <coach.engine.jar>${user.home}/claude_JavaCoach/coach-engine/target/coach-engine-0.1.0.jar</coach.engine.jar>
     </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>dev.javacoach</groupId>
+            <artifactId>coach-engine</artifactId>
+            <version>0.1.0</version>
+            <scope>system</scope>
+            <systemPath>${coach.engine.jar}</systemPath>
+        </dependency>
+    </dependencies>
 
     <build>
         <sourceDirectory>src/main/kotlin</sourceDirectory>
@@ -73,6 +90,7 @@
                                 <delete dir="${sandbox.dir}/plugins/${plugin.dir.name}"/>
                                 <copy file="${project.build.directory}/${project.build.finalName}.jar"
                                       todir="${sandbox.dir}/plugins/${plugin.dir.name}/lib"/>
+                                <copy file="${coach.engine.jar}" todir="${sandbox.dir}/plugins/${plugin.dir.name}/lib"/>
                             </target>
                         </configuration>
                     </execution>

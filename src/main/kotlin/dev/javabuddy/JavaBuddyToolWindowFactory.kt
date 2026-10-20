@@ -13,6 +13,8 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
+import dev.javabuddy.coach.CoachPanel
+import dev.javabuddy.coach.StyleCoach
 import dev.javabuddy.concepts.ConceptCards
 import dev.javabuddy.concepts.ConceptsPanel
 import dev.javabuddy.drills.DrillService
@@ -21,6 +23,8 @@ import dev.javabuddy.memory.MemoryPanel
 import dev.javabuddy.memory.MemoryService
 import dev.javabuddy.progress.ProgressPanel
 import dev.javabuddy.progress.ProgressService
+import dev.javabuddy.quest.QuestPanel
+import dev.javabuddy.quest.QuestService
 import dev.javabuddy.errors.ErrorExplainer
 import dev.javabuddy.errors.ErrorsPanel
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +48,12 @@ class JavaBuddyToolWindowFactory : ToolWindowFactory, DumbAware {
         val memory = MemoryPanel(project)
         Disposer.register(toolWindow.disposable, memory)
         toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(memory, MemoryService.TAB_NAME, false))
+        val coach = CoachPanel(project)
+        Disposer.register(toolWindow.disposable, coach)
+        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(coach, StyleCoach.TAB_NAME, false))
+        val quest = QuestPanel(project)
+        Disposer.register(toolWindow.disposable, quest)
+        toolWindow.contentManager.addContent(ContentFactory.getInstance().createContent(quest, QuestService.TAB_NAME, false))
     }
 }
 

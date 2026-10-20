@@ -95,6 +95,10 @@ Show only real compile errors:
   that check (exit 2 = unsafe, ask the user), relaunches, and reports the load line and any plugin
   errors from this launch. `-NoBuild` skips the build.
   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restart-test-ide.ps1`
+- **The Java Coach engine** (`C:\Users\kimba\claude_JavaCoach\coach-engine`, plain Java 17) is a
+  system-scoped dependency (`coach.engine.jar` in `pom.xml`) and ships as a second jar in the plugin's
+  `lib/`. Build it there first (`mvn -o package` in `claude_JavaCoach`). Its quest checker compiles with
+  `javax.tools` inside the IDE (JBR has `jdk.compiler`) and runs answers with the IDE's own `java`.
 - `ide-platform/pom.xml` is **generated**: it lists the local IDE's jars as system-scoped deps.
   After an IntelliJ update run `scripts/generate-ide-platform-pom.ps1 -IdeaHome "<new install>"`.
 - Target: IntelliJ 2026.2.3 (build 262), JBR 25, Kotlin 2.4 (`kotlin.version` 2.4.21, jvmTarget 21).
@@ -123,6 +127,8 @@ To find which jar holds a class: loop over `"$IDE"/lib/*.jar` with `unzip -l | g
 | `drills/` | `Drills.kt` (`Topic`, `Check.Returns`/`Prints`, the 33 `DRILLS` with starter code), `DrillChecker` (writes the learner's code + a generated Java 8 test class to a temp dir, `javac` + `java` from the project JDK, 5 s run limit, parses `@@JB` marker lines), `DrillService` (scratch files, check, passed set in `javaBuddy.drills.passed`), `DrillsPanel` (the Drills tab), `DrillNotificationProvider` (the "Check my answer" bar on drill files) |
 | `progress/` | `Ideas.kt` (41 `IDEAS`: regex per added line, quotes/comments stripped; links to a concept card and drill topic), `ProgressScanner` (`git log -p` per repo, first use per idea, `suggestFolders`), `ProgressService` (open project's VCS roots + folders in `javaBuddy.progress.folders`), `ProgressPanel` (Progress tab, `Tile`) |
 | `memory/` | `MemorySnapshot.kt` (`SnapshotBuilder`: JDI frame → rows/boxes; Strings, boxed numbers and enums inline; ArrayList/HashMap read from their fields; Java's own objects not opened), `MemoryService` (`XDebugSessionListener`, builds on the debugger manager thread via `SuspendContextCommandImpl`, "changed" keys), `MemoryPicture` (paints boxes and arrows), `MemoryPanel` (Memory tab) |
+| `coach/` | Uses the Java Coach engine. `StyleCoach` (project service: runs the engine's `StyleChecker` on the selected `.java` file on selection change and 0.8 s after typing stops), `CoachPanel` (the Coach tab: summary + one card per finding, coloured by severity), `CoachText.kt` (`plain`, `Card.richText`: the engine's `code`/**bold**/```java marks → text and code boxes) |
+| `quest/` | Java Quest, the engine's game. `QuestService` (quest scratch files in `Scratches/java-quest/`, checks via the engine's `QuestChecker` on IO, XP saved in the engine's `~/.javacoach/progress.properties`, shared with its `Quest` CLI), `QuestPanel` (the Quest tab: result on top, XP/rank card, levels and quests), `QuestNotificationProvider` (the bar on quest files) |
 | `ui/` | `Cards.kt`: `Card` (rounded, accent stripe; chip/title/section/example/links/custom/progressBar), `CardList`, `BuddyColors`, `emptyState`, `heading`, `fitToWidth` (sizes a popup to its wrapped text) |
 
 Conventions: background work uses the project `JavaBuddyScope` coroutine scope; user messages go
