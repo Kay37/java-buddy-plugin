@@ -17,6 +17,9 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import dev.javabuddy.JavaBuddyScope
+import com.intellij.openapi.project.ProjectManager
+import dev.javacoach.engine.style.Finding
+import dev.javacoach.engine.style.RuleFeedback
 import dev.javacoach.engine.style.StyleChecker
 import dev.javacoach.engine.style.StyleReport
 import kotlinx.coroutines.CancellationException
@@ -29,8 +32,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The Style Coach's notes on one file. */
-data class CoachNotes(val file: VirtualFile, val report: StyleReport)
+/** The Style Coach's notes on one file. [visible] leaves out tips the learner muted with "Not helpful". */
+data class CoachNotes(val file: VirtualFile, val report: StyleReport, val visible: List<Finding>, val muted: Set<String>)
 
 /**
  * Runs the Java Coach engine's Style Coach on the Java file being edited: when another file is
@@ -59,7 +62,7 @@ class StyleCoach(private val project: Project) : Disposable {
         refresh(0)
     }
 
-    private fun refresh(delayMs: Long) {
+    internal fun refresh(delayMs: Long) {
         pending?.cancel()
         pending = project.service<JavaBuddyScope>().cs.launch {
             delay(delayMs)
@@ -70,7 +73,9 @@ class StyleCoach(private val project: Project) : Disposable {
             }
             val code = readAction { FileDocumentManager.getInstance().getDocument(file)?.text } ?: return@launch
             try {
-                _notes.value = CoachNotes(file, withContext(Dispatchers.Default) { StyleChecker().check(code) })
+                val report = withContext(Dispatchers.Default) { StyleChecker().check(code) }
+                val feedback = withContext(Dispatchers.IO) { RuleFeedback.load(RuleFeedback.defaultFile()) }
+                _notes.value = CoachNotes(file, report, feedback.visible(report.findings()), feedback.muted())
             }
             catch (e: CancellationException) {
                 throw e
@@ -78,6 +83,25 @@ class StyleCoach(private val project: Project) : Disposable {
             catch (e: Exception) {
                 LOG.warn("The Style Coach failed on ${file.name}", e)
             }
+        }
+    }
+
+    /** "Helpful" / "Not helpful" on a tip. Not helpful hides that kind of tip from now on (bugs always show). */
+    fun vote(finding: Finding, helpful: Boolean) = changeFeedback { if (helpful) it.thumbsUp(finding) else it.thumbsDown(finding) }
+
+    fun unmute(rule: String) = changeFeedback { it.unmute(rule) }
+
+    private fun changeFeedback(change: (RuleFeedback) -> Unit) {
+        project.service<JavaBuddyScope>().cs.launch(Dispatchers.IO) {
+            try {
+                val feedback = RuleFeedback.load(RuleFeedback.defaultFile())
+                change(feedback)
+                feedback.save(RuleFeedback.defaultFile())
+            }
+            catch (e: Exception) {
+                LOG.warn("Couldn't save Style Coach feedback", e)
+            }
+            ProjectManager.getInstance().openProjects.forEach { it.service<StyleCoach>().refresh(0) }
         }
     }
 

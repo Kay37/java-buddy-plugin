@@ -13,6 +13,7 @@ import dev.javabuddy.ui.Card
 import dev.javabuddy.ui.CardList
 import dev.javabuddy.ui.emptyState
 import dev.javacoach.engine.style.Finding
+import dev.javacoach.engine.style.RuleFeedback
 import dev.javacoach.engine.style.Severity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,7 +50,8 @@ class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         }
         else {
             list.addCard(summaryCard(notes))
-            notes.report.findings().forEach { list.addCard(findingCard(notes, it)) }
+            notes.visible.forEach { list.addCard(findingCard(notes, it)) }
+            if (notes.muted.isNotEmpty()) list.addCard(mutedCard(notes.muted))
         }
         list.revalidate()
         list.repaint()
@@ -60,11 +62,11 @@ class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
     }
 
     private fun summaryCard(notes: CoachNotes): Card {
-        val report = notes.report
-        val bugs = report.count(Severity.BUG).toInt()
-        val worth = report.count(Severity.WARN).toInt()
-        val tips = report.count(Severity.TIP).toInt()
-        val nice = report.count(Severity.GOOD).toInt()
+        val shown = notes.visible
+        val bugs = shown.count { it.severity() == Severity.BUG }
+        val worth = shown.count { it.severity() == Severity.WARN }
+        val tips = shown.count { it.severity() == Severity.TIP }
+        val nice = shown.count { it.severity() == Severity.GOOD }
         val clean = bugs == 0 && worth == 0
         val card = if (clean) Card(BuddyColors.GOOD_ACCENT, BuddyColors.GOOD_BACKGROUND) else Card(BuddyColors.HELP_ACCENT, BuddyColors.NEUTRAL_BACKGROUND)
         return card.apply {
@@ -73,9 +75,9 @@ class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             text(listOf(
                 pluralize(bugs, "bug"), "$worth worth fixing", pluralize(tips, "tip"), "$nice nice",
             ).joinToString("  ·  "))
-            if (report.findings().isEmpty()) text("Nothing to say yet. Keep going!", muted = true)
+            if (shown.isEmpty()) text("Nothing to say yet. Keep going!", muted = true)
             else if (clean) text("No bugs and nothing worth fixing. Nice! The tips below are small extras.", muted = true)
-            text("The notes update a moment after you stop typing.", muted = true)
+            text("The notes update a moment after you stop typing. Tips also show in the editor, dotted under the line. Press \"Not helpful\" on a tip to stop seeing that kind.", muted = true)
         }
     }
 
@@ -91,8 +93,19 @@ class CoachPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             chip(if (line > 0) "${finding.severity().label()} · line $line" else finding.severity().label())
             title(plain(finding.title()))
             richText(finding.message())
-            if (line > 0) links("Go to line $line" to { coach.navigate(notes.file, line) })
+            val votes = buildList<Pair<String, () -> Unit>> {
+                if (line > 0) add("Go to line $line" to { coach.navigate(notes.file, line) })
+                add("Helpful" to { coach.vote(finding, true) })
+                if (finding.severity() != Severity.BUG) add("Not helpful (hide these)" to { coach.vote(finding, false) })
+            }
+            links(*votes.toTypedArray())
         }
+    }
+
+    private fun mutedCard(muted: Set<String>): Card = Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
+        chip("Hidden tips")
+        text("You said these weren't helpful, so the coach keeps them to itself. Bugs always show.", muted = true)
+        muted.sorted().forEach { rule -> linkLine("Show again", RuleFeedback.label(rule)) { coach.unmute(rule) } }
     }
 
     override fun dispose() = Unit
