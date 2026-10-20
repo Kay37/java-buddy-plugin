@@ -18,6 +18,7 @@ import dev.javabuddy.ui.heading
 import dev.javacoach.engine.game.check.CheckResult
 import dev.javacoach.engine.game.model.Quest
 import dev.javacoach.engine.game.model.QuestKind
+import dev.javacoach.engine.ai.CoachAI
 import dev.javacoach.engine.daily.Today
 import dev.javacoach.engine.daily.WarmUps
 import dev.javacoach.engine.game.progress.Achievements
@@ -65,10 +66,12 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         val scrollPosition = scroll.verticalScrollBar.value
         list.removeAll()
 
-        val focus = state.focus?.let { id -> QuestService.COURSE.quest(id).orElse(null) }
+        val focus = state.focus?.let { id -> QuestService.quest(id) }
         if (focus != null) list.addCard(topCard(focus, state))
         val another = focus?.let { state.anotherWay[it.id()] }
         if (focus != null && another != null) list.addCard(anotherWayCard(focus, another))
+        val coach = focus?.let { state.coach[it.id()] }
+        if (focus != null && coach != null) list.addCard(coachCard(focus, coach))
         state.daily?.today?.let { list.addCard(todayCard(it)) }
         state.daily?.takeIf { it.mistakeTopics.isNotEmpty() }?.let { list.addCard(mistakesCard(it)) }
         list.addCard(playerCard(state))
@@ -78,6 +81,11 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             val open = state.progress.canPlay(QuestService.COURSE, level)
             list.addCard(heading("Level ${level.number()}: ${level.name()}  ·  $done of ${level.quests().size} done${if (open) "" else "  (locked)"}"))
             level.quests().forEach { list.addCard(questCard(it, state, open)) }
+        }
+        if (state.bonus.isNotEmpty() || state.makingBonus != null) {
+            list.addCard(heading("Bonus quests  ·  made by the AI coach, checked by the engine"))
+            if (state.makingBonus != null) list.addCard(makingBonusCard())
+            state.bonus.forEach { list.addCard(questCard(it, state, true)) }
         }
         list.revalidate()
         list.repaint()
@@ -232,6 +240,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             hintLink(quest, state, done)?.let(::add)
         }
         links(*links.toTypedArray())
+        if (showProgram && quests.isUnlocked(quest)) links("Ask the AI coach" to { quests.askCoach(quest, CoachAI.Mode.STUCK) }, "Explain my plan" to { quests.askCoach(quest, CoachAI.Mode.PLAN) })
     }
 
     private fun Card.hintSections(quest: Quest, state: QuestState) {
@@ -290,6 +299,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         val passedLinks = buildList<Pair<String, () -> Unit>> {
             if (next != null) add("Next quest: ${next.title()}" to { quests.open(next) })
             if (quests.canShowAnotherWay(quest)) add("See another way" to { quests.showAnotherWay(quest) })
+            if (quest.kind().answersWithCode()) add("More like this (bonus quest)" to { quests.makeBonus(quest) })
         }
         if (next == null) text("That's every open quest done. More levels are on the way!")
         if (passedLinks.isNotEmpty()) links(*passedLinks.toTypedArray())
@@ -327,6 +337,7 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
                 hintLink(quest, state, state.progress.isDone(quest.id()))?.let(::add)
             }
             links(*links.toTypedArray())
+            links("Ask the AI coach" to { quests.askCoach(quest, CoachAI.Mode.STUCK) }, "Explain my plan" to { quests.askCoach(quest, CoachAI.Mode.PLAN) })
             result.stuckWarmUp?.let { warm ->
                 section("STUCK? TRY THIS FIRST", plain(warm.reason()))
                 links("Warm up with ${warm.quest().title()}" to { quests.open(warm.quest()); quests.focus(warm.quest()) })
@@ -354,6 +365,33 @@ class QuestPanel(project: Project) : JPanel(BorderLayout()), Disposable {
         val lines = stages.mapIndexed { k, stage -> (if (k < result.stage) "✓ " else "○ ") + stage.name() }
         section("BOSS STAGES · ${result.stage} OF ${stages.size}" + if (result.stageXp > 0) "  (+${result.stageXp} XP)" else "", "")
         example(lines.joinToString("\n"))
+    }
+
+    /** The AI coach's reply (or "thinking…", or what to do first, like signing in). */
+    private fun coachCard(quest: Quest, view: CoachView): Card = Card(BuddyColors.CONCEPT_ACCENT, BuddyColors.CONCEPT_BACKGROUND).apply {
+        chip(if (view.mode == CoachAI.Mode.PLAN) "AI coach · your plan" else "AI coach")
+        when {
+            view.text == null && view.problem == null -> {
+                title("The coach is thinking…")
+                text("This takes a few seconds.", muted = true)
+            }
+            view.problem != null -> {
+                title("The AI coach can't answer yet")
+                text(view.problem)
+                text("The hints above still work without it.", muted = true)
+            }
+            else -> {
+                richText(view.text.orEmpty())
+                if (view.filtered) text("Part of the reply was held back because it gave away too much. That's on purpose.", muted = true)
+                text("The coach asks questions and points at ideas. It never writes your code.", muted = true)
+            }
+        }
+        links("Ask again" to { quests.askCoach(quest, view.mode) }, "Hide" to { quests.hideCoach(quest) })
+    }
+
+    private fun makingBonusCard(): Card = Card(BuddyColors.NEUTRAL_ACCENT, BuddyColors.NEUTRAL_BACKGROUND).apply {
+        chip("Making a bonus quest…")
+        text("Claude is writing a new quest, then the engine runs its tests to prove it's fair. This can take a minute.", muted = true)
     }
 
     /** ★★☆ for a quest's stars. */

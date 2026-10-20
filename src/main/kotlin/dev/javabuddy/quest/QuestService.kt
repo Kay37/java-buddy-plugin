@@ -44,6 +44,8 @@ import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.openapi.util.Key
 import com.intellij.ui.JBColor
+import dev.javacoach.engine.ai.BonusQuests
+import dev.javacoach.engine.ai.CoachAI
 import dev.javacoach.engine.daily.MistakeNotebook
 import dev.javacoach.engine.daily.Today
 import dev.javacoach.engine.daily.UsageLog
@@ -88,7 +90,16 @@ data class QuestState(
     val saveProblem: String? = null,
     val anotherWay: Map<String, AnotherWayView> = emptyMap(),
     val daily: DailyView? = null,
+    /** AI-made quests the engine proved sound, saved in ~/.javacoach/bonus. */
+    val bonus: List<Quest> = emptyList(),
+    /** The AI coach's latest reply per quest (or "thinking…" while it runs). */
+    val coach: Map<String, CoachView> = emptyMap(),
+    /** The quest a bonus quest is being made like, while Claude writes and the engine checks it. */
+    val makingBonus: String? = null,
 )
+
+/** The AI coach's reply, a plain-words problem (like "sign in first"), or null text while it's thinking. */
+data class CoachView(val mode: CoachAI.Mode, val text: String?, val problem: String?, val filtered: Boolean)
 
 /** Today's quest, the topics of this week's mistakes (most common first), and days used this week. */
 data class DailyView(val today: Today.TodayQuest?, val mistakeTopics: Map<String, Int>, val daysUsed: Int)
@@ -115,7 +126,57 @@ class QuestService(private val project: Project) {
         project.service<JavaBuddyScope>().cs.launch {
             val (progress, problem) = withContext(Dispatchers.IO) { loadQuietly() }
             val daily = withContext(Dispatchers.IO) { daily(progress) }
-            _state.update { it.copy(progress = progress, saveProblem = problem, daily = daily) }
+            val bonus = withContext(Dispatchers.IO) { BonusQuests.load(BonusQuests.defaultDir()) }
+            BONUS = bonus
+            _state.update { it.copy(progress = progress, saveProblem = problem, daily = daily, bonus = bonus) }
+        }
+    }
+
+    /**
+     * Asks the AI coach (Claude, through the learner's own claude tool). STUCK looks at their code and
+     * the last check; PLAN talks about the plan they type in words. It asks; it never writes the code.
+     */
+    fun askCoach(quest: Quest, mode: CoachAI.Mode) {
+        val prompt = if (mode == CoachAI.Mode.PLAN) "Explain your plan in plain words: what will your code do, step by step?"
+                     else "What are you stuck on? (You can leave this empty: the coach reads your code and the last check.)"
+        val words = Messages.showMultilineInputDialog(project, prompt, if (mode == CoachAI.Mode.PLAN) "Explain My Plan" else "Ask the AI Coach", "", null, null)
+            ?: return
+        if (mode == CoachAI.Mode.PLAN && words.isBlank()) return
+        val file = existingFile(quest)
+        DailyLog.use("ai-coach")
+        project.service<JavaBuddyScope>().cs.launch {
+            _state.update { it.copy(coach = it.coach + (quest.id() to CoachView(mode, null, null, false)), focus = quest.id()) }
+            withContext(Dispatchers.EDT) { showPanel() }
+            val code = file?.let { readAction { FileDocumentManager.getInstance().getDocument(it)?.text } }.orEmpty()
+            val state = _state.value
+            val reply = withContext(Dispatchers.IO) {
+                CoachAI.usual().help(quest, code, state.results[quest.id()]?.check, state.progress.hintsOpened(quest.id()), words, mode)
+            }
+            _state.update { it.copy(coach = it.coach + (quest.id() to CoachView(mode, reply.text(), reply.problem(), reply.filtered()))) }
+        }
+    }
+
+    fun hideCoach(quest: Quest) = _state.update { it.copy(coach = it.coach - quest.id()) }
+
+    /** "More like this": Claude writes a new quest on the same idea; it's kept only if the engine proves it sound. */
+    fun makeBonus(like: Quest) {
+        if (_state.value.makingBonus != null) return
+        DailyLog.use("bonus")
+        project.service<JavaBuddyScope>().cs.launch {
+            _state.update { it.copy(makingBonus = like.id()) }
+            val made = withContext(Dispatchers.IO) { BonusQuests.usual().makeLike(like, BonusQuests.defaultDir()) }
+            val bonus = withContext(Dispatchers.IO) { BonusQuests.load(BonusQuests.defaultDir()) }
+            BONUS = bonus
+            _state.update { it.copy(makingBonus = null, bonus = bonus) }
+            withContext(Dispatchers.EDT) {
+                if (made.ok()) {
+                    notifyUser(project, NotificationType.INFORMATION, "New bonus quest: ${made.quest().title()}",
+                        "It passed the engine's checks. It's in Practice > Quests, under Bonus quests.")
+                    open(made.quest())
+                    focus(made.quest())
+                }
+                else notifyUser(project, NotificationType.WARNING, "No bonus quest this time", made.problem())
+            }
         }
     }
 
@@ -144,6 +205,7 @@ class QuestService(private val project: Project) {
 
     /** Open the normal way, or at or below the level the learner's class is on (their focus). */
     fun isUnlocked(quest: Quest): Boolean {
+        if (isBonus(quest)) return true
         val level = COURSE.levelOf(quest.id()).orElse(null) ?: return false
         return _state.value.progress.canPlay(COURSE, level)
     }
@@ -393,7 +455,16 @@ class QuestService(private val project: Project) {
         fun questFor(file: VirtualFile): Quest? {
             if (file.parent?.name != FOLDER) return null
             if (ScratchFileService.findRootType(file) !is ScratchRootType) return null
-            return COURSE.levels().flatMap { it.quests() }.firstOrNull { fileName(it) == file.name }
+            return (COURSE.levels().flatMap { it.quests() } + BONUS).firstOrNull { fileName(it) == file.name }
         }
+
+        /** The bonus quests loaded last (for finding a quest by file or id). */
+        @Volatile var BONUS: List<Quest> = BonusQuests.load(BonusQuests.defaultDir())
+            private set
+
+        fun isBonus(quest: Quest) = quest.id().startsWith("bonus-")
+
+        /** A course quest or a bonus quest, by id. */
+        fun quest(id: String): Quest? = COURSE.quest(id).orElse(null) ?: BONUS.firstOrNull { it.id() == id }
     }
 }
