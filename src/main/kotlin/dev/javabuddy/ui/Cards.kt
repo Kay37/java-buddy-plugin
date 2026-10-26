@@ -243,8 +243,9 @@ private fun layoutTree(component: Component) {
     component.components.forEach(::layoutTree)
 }
 
-fun heading(text: String): JComponent = JLabel(text).apply {
-    font = JBUI.Fonts.label().deriveFont(Font.BOLD, JBUI.Fonts.label().size2D + 1f)
+/** A label between cards. [big] is for a top-level group, like a workbook in the Drills tab. */
+fun heading(text: String, big: Boolean = false): JComponent = JLabel(text).apply {
+    font = JBUI.Fonts.label().deriveFont(Font.BOLD, JBUI.Fonts.label().size2D + if (big) 4f else 1f)
     horizontalAlignment = SwingConstants.LEFT
-    border = JBUI.Borders.empty(4, 2, 0, 0)
+    border = if (big) JBUI.Borders.empty(14, 2, 2, 0) else JBUI.Borders.empty(4, 2, 0, 0)
 }

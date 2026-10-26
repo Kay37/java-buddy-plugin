@@ -61,6 +61,7 @@ class ConceptsPanel(project: Project) : JPanel(BorderLayout()), Disposable {
             else Card(BuddyColors.CONCEPT_ACCENT, BuddyColors.CONCEPT_BACKGROUND).apply {
                 title("Rest your mouse on a Java word")
                 text("Try static, final, extends or the < > in List<String>. A card pops up that explains it, with a small example.")
+                text("Names like substring, split, parseInt, StringBuilder and LocalDate have cards too, and so do constructors, getters and setters: click on one and its card shows up here.")
                 text("The card also shows up here. So does the card for the word your text cursor is on.", muted = true)
             }
         )

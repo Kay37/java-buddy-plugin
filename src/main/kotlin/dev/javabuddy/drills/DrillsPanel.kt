@@ -48,6 +48,9 @@ class DrillsPanel(private val project: Project) : JPanel(BorderLayout()), Dispos
 
         list.addCard(introCard(state))
         for (topic in Topic.entries) {
+            if (topic.ordinal == 0 || Topic.entries[topic.ordinal - 1].workbook != topic.workbook) {
+                list.addCard(heading(WORKBOOKS[topic.workbook] ?: "Workbook ${topic.workbook}", big = true))
+            }
             val inTopic = DRILLS.filter { it.topic == topic }
             val done = inTopic.count { it.className in state.passed }
             list.addCard(heading("${topic.title}${if (topic.soon) "  (coming up in the course)" else ""}  ·  $done of ${inTopic.size} done"))
@@ -191,7 +194,10 @@ class DrillsPanel(private val project: Project) : JPanel(BorderLayout()), Dispos
         else {
             chip("Can't find your method")
             title("Java Buddy couldn't call your method")
-            text("Your code builds, but the method doesn't match what the drill asks for. Check its name (capital letters count), that it says static, and what's in the brackets.")
+            text(
+                if (drill.usesObjects) "Your code builds, but it doesn't match what the drill asks for. Check the names (capital letters count) and what's in the brackets."
+                else "Your code builds, but the method doesn't match what the drill asks for. Check its name (capital letters count), that it says static, and what's in the brackets."
+            )
             section("ITS FIRST LINE SHOULD BE", drill.signature)
             example("✓ ${drill.signature} {\n      ...\n  }")
         }

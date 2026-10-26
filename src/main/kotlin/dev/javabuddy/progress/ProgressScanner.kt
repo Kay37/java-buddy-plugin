@@ -93,9 +93,12 @@ object ProgressScanner {
         val result = mutableListOf<CommitIdeas>()
         var current: CommitIdeas? = null
         val ideas = mutableSetOf<String>()
+        // Method names made in the current file of this commit: the same name twice is overloading.
+        val methodsInFile = mutableSetOf<String>()
         fun finish() {
             current?.let { if (ideas.isNotEmpty()) result += it.copy(ideas = ideas.toSet()) }
             ideas.clear()
+            methodsInFile.clear()
         }
         for (line in output.stdout.lineSequence()) {
             if (line.startsWith(HEADER)) {
@@ -104,8 +107,13 @@ object ProgressScanner {
                 val date = runCatching { OffsetDateTime.parse(parts[2]).toLocalDate() }.getOrElse { LocalDate.now() }
                 current = CommitIdeas(repo.name, parts[1], date, parts.getOrElse(3) { "" }, emptySet())
             }
-            else if (line.startsWith("+") && !line.startsWith("+++")) {
-                ideasIn(line.substring(1)).forEach { ideas += it.id }
+            else if (line.startsWith("+++")) {
+                methodsInFile.clear()
+            }
+            else if (line.startsWith("+")) {
+                val added = line.substring(1)
+                ideasIn(added).forEach { ideas += it.id }
+                methodMadeIn(added)?.let { name -> if (!methodsInFile.add(name)) ideas += "overloading" }
             }
         }
         finish()

@@ -1,28 +1,46 @@
 package dev.javabuddy.drills
 
-/** A group of drills in the Drills tab, in course order. [soon] marks topics the course hasn't reached yet. */
-enum class Topic(val title: String, val short: String, val soon: Boolean = false) {
-    STATIC("Static methods", "Methods"),
-    VARIABLES("Variables and math", "Math"),
-    STRINGS("Text (Strings)", "Text"),
-    DECISIONS("if, else and boolean", "if / else"),
-    SWITCH("switch", "switch"),
-    INPUT("Scanner and printf", "Input"),
-    LOOPS("Loops", "Loops", soon = true),
-    ARRAYS("Arrays", "Arrays", soon = true),
+/**
+ * A group of drills in the Drills tab, in course order. [workbook] is the course workbook it comes
+ * from (see [WORKBOOKS]). [soon] marks topics the course hasn't reached yet.
+ */
+enum class Topic(val title: String, val short: String, val workbook: Int, val soon: Boolean = false) {
+    VARIABLES("Variables and math", "Math", 1),
+    INPUT("Scanner and printf", "Input", 1),
+    DECISIONS("if, else and boolean", "if / else", 1),
+    STATIC("Static methods", "Methods", 1),
+    SWITCH("switch", "switch", 1),
+    STRINGS("Text (Strings)", "Text", 2),
+    CONVERTING("Text into numbers and dates", "Converting", 2),
+    BUILDER("StringBuilder", "StringBuilder", 2),
+    CLASSES("Classes and objects", "Classes", 2),
+    OVERLOADING("Same name, different inputs (overloading)", "Overloading", 2),
+    LOOPS("Loops", "Loops", 2),
+    ARRAYS("Arrays", "Arrays", 2),
 }
+
+/** The course workbooks, by number, as the Drills tab names them. */
+val WORKBOOKS = mapOf(1 to "Workbook 1: Intro to Java", 2 to "Workbook 2: Strings, Loops and Arrays")
 
 /**
  * One hidden test. [call] is Java code run on the drill's class, like `area(3, 4)`; for [Prints]
- * it may use `in`, a Scanner reading [input]. [why] is shown when this test fails.
+ * it may use `in`, a Scanner reading [input]. [why] is shown when this test fails. With [onClass]
+ * false, [call] is used as it is, for drills that make objects: `new Pet("Rex", 3).getName()`.
  */
 sealed class Check {
     abstract val call: String
     abstract val label: String
     abstract val why: String?
+    abstract val onClass: Boolean
 
     /** [call] must give back [expected], a Java expression such as `12`, `"K.B."` or `Math.PI * 4`. */
-    data class Returns(override val call: String, val expected: String, override val why: String? = null, override val label: String = call) : Check()
+    data class Returns(
+        override val call: String,
+        val expected: String,
+        override val why: String? = null,
+        override val label: String = call,
+        override val onClass: Boolean = true,
+    ) : Check()
 
     /** [call] must print [expected] (or, with [contains], print something that includes it). */
     data class Prints(
@@ -32,6 +50,7 @@ sealed class Check {
         val contains: Boolean = false,
         override val why: String? = null,
         override val label: String = call,
+        override val onClass: Boolean = true,
     ) : Check()
 }
 
@@ -51,6 +70,9 @@ data class Drill(
     val checks: List<Check>,
 ) {
     val fileName get() = "$className.java"
+
+    /** True when the checks make objects instead of calling static methods on the class. */
+    val usesObjects get() = checks.any { !it.onClass }
 }
 
 /** Starter for a drill where the method is already there and only its inside is missing. */
@@ -95,6 +117,14 @@ private fun writeYourOwn(className: String, signature: String, what: String, mai
 
 private fun print(call: String) = "System.out.println($call);"
 
+/**
+ * A check [call] that runs a few statements, then gives back [result]: for objects that need
+ * setting up first. Use it with `onClass = false` and a readable `label`.
+ */
+private fun steps(vararg statements: String, result: String) =
+    "((java.util.concurrent.Callable<Object>) () -> { ${statements.joinToString(" ")} return $result; }).call()"
+
+/** The drills in course order: grouped by [Topic], in the order written below within a topic. */
 val DRILLS: List<Drill> = listOf(
     // ---------------------------------------------------------------- Static methods
     Drill(
@@ -341,6 +371,94 @@ val DRILLS: List<Drill> = listOf(
             Check.Returns("saysYes(\"yes please\")", "false", why = "Only the exact word yes counts, so use equalsIgnoreCase, not contains."),
         ),
     ),
+    Drill(
+        "BeforeDash", Topic.STRINGS, "Text before the dash",
+        task = "Product codes look like ACME-12213. Give back the part before the dash: ACME.",
+        signature = "static String vendor(String code)",
+        starter = fillIn("BeforeDash", "\"ACME-12213\" gives back \"ACME\".", "static String vendor(String code)", "\"\"", listOf(print("vendor(\"ACME-12213\")") + "   // should print ACME")),
+        hint = "code.indexOf(\"-\") tells you where the dash is (4 in ACME-12213). Then code.substring(0, dash) gives everything before it. The end number is never included.",
+        checks = listOf(
+            Check.Returns("vendor(\"ACME-12213\")", "\"ACME\"", why = "substring(0, dash) stops just before the dash. If you got ACME-, the end number was one too big."),
+            Check.Returns("vendor(\"XY-9\")", "\"XY\""),
+            Check.Returns("vendor(\"LONGNAME-1\")", "\"LONGNAME\"", why = "Find the dash with indexOf instead of using a fixed number: codes can be any length."),
+        ),
+    ),
+    Drill(
+        "AfterDash", Topic.STRINGS, "Text after the dash",
+        task = "Now the other half: give back the part after the dash. ACME-12213 gives back 12213.",
+        signature = "static String productNumber(String code)",
+        starter = fillIn("AfterDash", "\"ACME-12213\" gives back \"12213\".", "static String productNumber(String code)", "\"\"", listOf(print("productNumber(\"ACME-12213\")") + "   // should print 12213")),
+        hint = "Find the dash with indexOf, then code.substring(dash + 1). With only one number, substring goes all the way to the end.",
+        checks = listOf(
+            Check.Returns("productNumber(\"ACME-12213\")", "\"12213\"", why = "If you got -12213, start one past the dash: substring(dash + 1)."),
+            Check.Returns("productNumber(\"XY-9\")", "\"9\""),
+        ),
+    ),
+    Drill(
+        "WithoutEnds", Topic.STRINGS, "Cut off the ends",
+        task = "Give back the word without its first and last letter. Pizza gives back izz.",
+        signature = "static String withoutEnds(String word)",
+        starter = fillIn("WithoutEnds", "\"Pizza\" gives back \"izz\". \"cat\" gives back \"a\".", "static String withoutEnds(String word)", "\"\"", listOf(print("withoutEnds(\"Pizza\")") + "   // should print izz")),
+        hint = "word.substring(1, word.length() - 1). Start at 1 to skip the first letter. The end number is never included, so length() - 1 leaves off the last letter.",
+        checks = listOf(
+            Check.Returns("withoutEnds(\"Pizza\")", "\"izz\"", why = "substring(start, end) gives back end - start letters. For Pizza that's substring(1, 4): 3 letters."),
+            Check.Returns("withoutEnds(\"Burger\")", "\"urge\""),
+            Check.Returns("withoutEnds(\"cat\")", "\"a\""),
+            Check.Returns("withoutEnds(\"hi\")", "\"\"", why = "With 2 letters there's nothing in the middle: substring(1, 1) gives back \"\" (empty)."),
+        ),
+    ),
+    Drill(
+        "FullName", Topic.STRINGS, "Build a full name",
+        task = "Like the full-name exercise: join the parts of a name. Leave out the middle name or suffix when it's empty, and put \", \" before a suffix: Glen C. Williams, PhD. Trim extra spaces first.",
+        signature = "static String fullName(String first, String middle, String last, String suffix)",
+        starter = fillIn(
+            "FullName", "(\"Glen\", \"\", \"Williams\", \"PhD\") gives back \"Glen Williams, PhD\".",
+            "static String fullName(String first, String middle, String last, String suffix)", "\"\"",
+            listOf(print("fullName(\"Glen\", \"C.\", \"Williams\", \"\")") + "   // should print Glen C. Williams"),
+        ),
+        hint = "Trim each part first. Start with first. If middle isn't empty (!middle.isEmpty()), add a space and the middle name. Add a space and last. If suffix isn't empty, add \", \" and the suffix.",
+        checks = listOf(
+            Check.Returns("fullName(\"Glen\", \"\", \"Williams\", \"\")", "\"Glen Williams\"", why = "With no middle name there should be just one space between the first and last name."),
+            Check.Returns("fullName(\"Glen\", \"C.\", \"Williams\", \"\")", "\"Glen C. Williams\""),
+            Check.Returns("fullName(\"Glen\", \"\", \"Williams\", \"PhD\")", "\"Glen Williams, PhD\"", why = "A suffix comes after a comma and a space: Glen Williams, PhD"),
+            Check.Returns("fullName(\"  Glen \", \"C.\", \"Williams  \", \" PhD\")", "\"Glen C. Williams, PhD\"", why = "Use trim() on each part to remove spaces at the start and end."),
+            Check.Returns("fullName(\"Glen\", \"  \", \"Williams\", \"\")", "\"Glen Williams\"", why = "A middle name of only spaces is empty once it's trimmed. Trim first, then check isEmpty()."),
+        ),
+    ),
+    Drill(
+        "LastName", Topic.STRINGS, "Pick out the last name",
+        task = "Like the full-name parser: a name is first last or first middle last. Give back the last name. Trim it first in case of extra spaces.",
+        signature = "static String lastName(String name)",
+        starter = fillIn("LastName", "\"Dana L. Wyatt\" and \"Dana Wyatt\" both give back \"Wyatt\".", "static String lastName(String name)", "\"\"", listOf(print("lastName(\"Dana L. Wyatt\")") + "   // should print Wyatt")),
+        hint = "String[] parts = name.trim().split(\" \"); gives the words one by one. The last word is parts[parts.length - 1].",
+        checks = listOf(
+            Check.Returns("lastName(\"Dana L. Wyatt\")", "\"Wyatt\""),
+            Check.Returns("lastName(\"Dana Wyatt\")", "\"Wyatt\"", why = "With 2 words the last name is parts[1]; with 3 it's parts[2]. parts[parts.length - 1] works for both."),
+            Check.Returns("lastName(\"  Dana Wyatt  \")", "\"Wyatt\"", why = "Trim before you split. Spaces at the end make an empty last word."),
+        ),
+    ),
+    Drill(
+        "LastFirst", Topic.STRINGS, "Last name first",
+        task = "Like the theater reservations: turn \"Dana Wyatt\" into \"Wyatt, Dana\".",
+        signature = "static String lastFirst(String name)",
+        starter = fillIn("LastFirst", "\"Dana Wyatt\" gives back \"Wyatt, Dana\".", "static String lastFirst(String name)", "\"\"", listOf(print("lastFirst(\"Dana Wyatt\")") + "   // should print Wyatt, Dana")),
+        hint = "Split at the space: parts[0] is the first name and parts[1] the last. Join them as parts[1] + \", \" + parts[0].",
+        checks = listOf(
+            Check.Returns("lastFirst(\"Dana Wyatt\")", "\"Wyatt, Dana\"", why = "The last name comes first, then a comma and a space, then the first name."),
+            Check.Returns("lastFirst(\"Glen Williams\")", "\"Williams, Glen\""),
+        ),
+    ),
+    Drill(
+        "Quote", Topic.STRINGS, "Quotes inside text",
+        task = "Give back text with quote marks in it: says(\"Big Tex\", \"Howdy\") gives back Big Tex says \"Howdy\"!",
+        signature = "static String says(String who, String words)",
+        starter = fillIn("Quote", "(\"Big Tex\", \"Howdy\") gives back: Big Tex says \"Howdy\"!", "static String says(String who, String words)", "\"\"", listOf(print("says(\"Big Tex\", \"Howdy\")") + "   // should print Big Tex says \"Howdy\"!")),
+        hint = "Inside text, \\\" is a quote mark that's part of the text: who + \" says \\\"\" + words + \"\\\"!\"",
+        checks = listOf(
+            Check.Returns("says(\"Big Tex\", \"Howdy\")", "\"Big Tex says \\\"Howdy\\\"!\"", why = "The quote marks go around Howdy, inside the text. Write each one as \\\" so Java doesn't end the text there."),
+            Check.Returns("says(\"Kim\", \"Hi\")", "\"Kim says \\\"Hi\\\"!\""),
+        ),
+    ),
 
     // ---------------------------------------------------------------- if / else / boolean
     Drill(
@@ -453,7 +571,322 @@ val DRILLS: List<Drill> = listOf(
         ),
     ),
 
-    // ---------------------------------------------------------------- Loops (coming up)
+    // ---------------------------------------------------------------- Text into numbers and dates
+    Drill(
+        "LineTotal", Topic.CONVERTING, "Price from a line of text",
+        task = "A line looks like id|description|quantity|price, for example 111|Hot Chocolate|21|4.99. Give back quantity times price.",
+        signature = "static double lineTotal(String line)",
+        starter = fillIn("LineTotal", "\"111|Hot Chocolate (12-count)|21|4.99\" gives back 21 * 4.99, about 104.79.", "static double lineTotal(String line)", "0.0", listOf(print("lineTotal(\"111|Hot Chocolate (12-count)|21|4.99\")") + "   // should print about 104.79")),
+        hint = "line.split(\"\\\\|\") cuts the line at each |. The | needs \\\\ in front, because split treats | as a special symbol. Then Integer.parseInt(parts[2]) and Double.parseDouble(parts[3]) turn the text into numbers.",
+        checks = listOf(
+            Check.Returns("lineTotal(\"111|Hot Chocolate (12-count)|21|4.99\")", "104.79", why = "Split with split(\"\\\\|\"). A plain split(\"|\") cuts between every letter."),
+            Check.Returns("lineTotal(\"5|Tea|2|1.50\")", "3.0"),
+        ),
+    ),
+    Drill(
+        "HighScore", Topic.CONVERTING, "Who won?",
+        task = "Like High Score Wins: a result looks like Home:Visitor|21:9 (the team names, then their scores). Give back the winning team's name.",
+        signature = "static String winner(String result)",
+        starter = fillIn("HighScore", "\"Home:Visitor|21:9\" gives back \"Home\".", "static String winner(String result)", "\"\"", listOf(print("winner(\"Home:Visitor|21:9\")") + "   // should print Home")),
+        hint = "Split at | first, with split(\"\\\\|\"): that gives the names and the scores. Split each half at \":\". Turn the scores into numbers with Integer.parseInt, then compare them.",
+        checks = listOf(
+            Check.Returns("winner(\"Home:Visitor|21:9\")", "\"Home\""),
+            Check.Returns("winner(\"Lions:Tigers|10:14\")", "\"Tigers\"", why = "The second team wins when its score is bigger."),
+            Check.Returns("winner(\"Ants:Bees|100:99\")", "\"Ants\"", why = "Compare the scores as numbers made with Integer.parseInt, not as text: as text, \"100\" comes before \"99\"."),
+        ),
+    ),
+    Drill(
+        "ToDate", Topic.CONVERTING, "Text into a date",
+        task = "Turn text like 10/17/2022 (month/day/year) into a LocalDate.",
+        signature = "static LocalDate toDate(String text)",
+        starter = fillIn(
+            "ToDate", "\"10/17/2022\" gives back the date October 17, 2022.",
+            "static LocalDate toDate(String text)", "null",
+            listOf(print("toDate(\"10/17/2022\")") + "   // should print 2022-10-17"),
+            imports = "import java.time.LocalDate;\nimport java.time.format.DateTimeFormatter;\n\n",
+        ),
+        hint = "Make a formatter with DateTimeFormatter.ofPattern(\"MM/dd/yyyy\"), then return LocalDate.parse(text, formatter). Capital MM is the month; small mm means minutes.",
+        checks = listOf(
+            Check.Returns("toDate(\"10/17/2022\")", "java.time.LocalDate.of(2022, 10, 17)", why = "Use \"MM/dd/yyyy\": capital MM is the month (small mm is minutes), dd the day and yyyy the year."),
+            Check.Returns("toDate(\"01/05/2026\")", "java.time.LocalDate.of(2026, 1, 5)"),
+        ),
+    ),
+    Drill(
+        "BirthYear", Topic.CONVERTING, "The year from a date",
+        task = "Dates written like 2002-10-17 (year-month-day) need no formatter. Give back the year as a number.",
+        signature = "static int birthYear(String date)",
+        starter = fillIn(
+            "BirthYear", "\"2002-10-17\" gives back 2002.",
+            "static int birthYear(String date)", "0",
+            listOf(print("birthYear(\"2002-10-17\")") + "   // should print 2002"),
+            imports = "import java.time.LocalDate;\n\n",
+        ),
+        hint = "LocalDate.parse(date) reads year-month-day text on its own. Then .getYear() gives back the year.",
+        checks = listOf(Check.Returns("birthYear(\"2002-10-17\")", "2002"), Check.Returns("birthYear(\"1999-01-31\")", "1999")),
+    ),
+
+    // ---------------------------------------------------------------- StringBuilder
+    Drill(
+        "Backwards", Topic.BUILDER, "Text backwards",
+        task = "Give back the text backwards, using a StringBuilder. abc gives back cba.",
+        signature = "static String backwards(String text)",
+        starter = fillIn("Backwards", "\"Java\" gives back \"avaJ\".", "static String backwards(String text)", "\"\"", listOf(print("backwards(\"Java\")") + "   // should print avaJ")),
+        hint = "new StringBuilder(text) makes a builder holding the text. .reverse() turns it around, and .toString() turns it back into a String.",
+        checks = listOf(
+            Check.Returns("backwards(\"abc\")", "\"cba\""),
+            Check.Returns("backwards(\"Java\")", "\"avaJ\""),
+            Check.Returns("backwards(\"\")", "\"\"", why = "Empty text backwards is still empty."),
+        ),
+    ),
+    Drill(
+        "AddressLabel", Topic.BUILDER, "Build an address",
+        task = "Like Address Builder: use a StringBuilder to give back a 3-line address label: the name, the street, then City, ST 12345.",
+        signature = "static String label(String name, String street, String city, String state, String zip)",
+        starter = fillIn(
+            "AddressLabel", "Gives back \"Dana Wyatt\\n123 Main St\\nDallas, TX 75201\" (\\n starts a new line).",
+            "static String label(String name, String street, String city, String state, String zip)", "\"\"",
+            listOf(print("label(\"Dana Wyatt\", \"123 Main St\", \"Dallas\", \"TX\", \"75201\")")),
+        ),
+        hint = "StringBuilder label = new StringBuilder(); then label.append(name).append(\"\\n\"); and so on for each line. At the end, return label.toString();",
+        checks = listOf(
+            Check.Returns(
+                "label(\"Dana Wyatt\", \"123 Main St\", \"Dallas\", \"TX\", \"75201\")", "\"Dana Wyatt\\n123 Main St\\nDallas, TX 75201\"",
+                why = "Each part goes on its own line: put \"\\n\" between them, but not at the very end. The last line is City, ST 12345.",
+            ),
+            Check.Returns("label(\"Glen Williams\", \"9 Oak Ave\", \"Austin\", \"TX\", \"73301\")", "\"Glen Williams\\n9 Oak Ave\\nAustin, TX 73301\""),
+        ),
+    ),
+
+    // ---------------------------------------------------------------- Classes and objects
+    Drill(
+        "Pet", Topic.CLASSES, "Your first class",
+        task = "Finish the Pet class: the constructor saves the name and age, and the getters give them back.",
+        signature = "public Pet(String name, int age)",
+        starter = """
+            |public class Pet {
+            |
+            |    // Each Pet has its own name and age. private: only code in this class can touch them.
+            |    private String name;
+            |    private int age;
+            |
+            |    // The constructor runs when someone writes new Pet("Rex", 3). Save the values here.
+            |    public Pet(String name, int age) {
+            |        // Your code here
+            |    }
+            |
+            |    // Gives back this pet's name.
+            |    public String getName() {
+            |        return "";   // <- replace this
+            |    }
+            |
+            |    // Gives back this pet's age.
+            |    public int getAge() {
+            |        return 0;   // <- replace this
+            |    }
+            |
+            |    // To try it yourself, press the green ▶ next to main.
+            |    // To test it, press "Check my answer" at the top of this file.
+            |    public static void main(String[] args) {
+            |        Pet rex = new Pet("Rex", 3);
+            |        System.out.println(rex.getName() + " is " + rex.getAge());   // should print Rex is 3
+            |    }
+            |}
+            |""".trimMargin(),
+        hint = "In the constructor, this.name = name; puts the name that came in into this pet's own name. Do the same for age. The getters just return name; and return age;",
+        checks = listOf(
+            Check.Returns("new Pet(\"Rex\", 3).getName()", "\"Rex\"", onClass = false, why = "The constructor has to save the name: this.name = name; and getName() has to return name;"),
+            Check.Returns("new Pet(\"Rex\", 3).getAge()", "3", onClass = false, why = "Save the age in the constructor too: this.age = age;"),
+            Check.Returns("new Pet(\"Milo\", 7).getName()", "\"Milo\"", onClass = false),
+        ),
+    ),
+    Drill(
+        "Phone", Topic.CLASSES, "Getters and setters",
+        task = "Like the Cell Phone Service: the owner's getter and setter are done. Write getNumber() and setNumber(...) the same way, and start the number as \"\" in the constructor.",
+        signature = "public void setNumber(String number)",
+        starter = """
+            |public class Phone {
+            |
+            |    private String owner;
+            |    private String number;
+            |
+            |    // A new phone starts empty: no owner and no number.
+            |    public Phone() {
+            |        this.owner = "";
+            |        // Your code here: start the number as "" too
+            |    }
+            |
+            |    // Done for you: the getter and setter for owner.
+            |    public String getOwner() {
+            |        return owner;
+            |    }
+            |
+            |    public void setOwner(String owner) {
+            |        this.owner = owner;
+            |    }
+            |
+            |    // Your turn: write getNumber() and setNumber(String number) the same way.
+            |
+            |    // To try it yourself, press the green ▶ next to main.
+            |    // To test it, press "Check my answer" at the top of this file.
+            |    public static void main(String[] args) {
+            |        Phone phone = new Phone();
+            |        phone.setOwner("Sandra");
+            |        phone.setNumber("888-555-1234");
+            |        System.out.println(phone.getOwner() + ": " + phone.getNumber());   // should print Sandra: 888-555-1234
+            |    }
+            |}
+            |""".trimMargin(),
+        hint = "Copy the owner pair and change owner to number:  public String getNumber() { return number; }  and  public void setNumber(String number) { this.number = number; }",
+        checks = listOf(
+            Check.Returns(steps("Phone p = new Phone();", result = "p.getNumber()"), "\"\"", onClass = false, label = "a new phone's number", why = "A new phone's number should start as \"\" (empty), not null. Set it in the constructor: this.number = \"\";"),
+            Check.Returns(steps("Phone p = new Phone();", "p.setNumber(\"888-555-1234\");", result = "p.getNumber()"), "\"888-555-1234\"", onClass = false, label = "setNumber, then getNumber()", why = "setNumber has to save the value that came in: this.number = number;"),
+            Check.Returns(steps("Phone p = new Phone();", "p.setOwner(\"Sandra\");", "p.setNumber(\"555\");", result = "p.getOwner()"), "\"Sandra\"", onClass = false, label = "setNumber leaves the owner alone", why = "setNumber should only change the number, not the owner."),
+        ),
+    ),
+    Drill(
+        "Mobile", Topic.CLASSES, "A method that uses a field",
+        task = "Write dial: it takes the number to call and prints OWNER's phone is calling NUMBER, using this phone's owner.",
+        signature = "public void dial(String numberToCall)",
+        starter = """
+            |public class Mobile {
+            |
+            |    private String owner;
+            |
+            |    public Mobile(String owner) {
+            |        this.owner = owner;
+            |    }
+            |
+            |    // Write dial below. It takes the number to call (a parameter: it's different every
+            |    // call, so it's not a field) and prints, for example: Sandra's phone is calling 555-1234
+            |    // Its first line should be:
+            |    //     public void dial(String numberToCall) {
+            |
+            |    // To try it yourself, press the green ▶ next to main.
+            |    // To test it, press "Check my answer" at the top of this file.
+            |    public static void main(String[] args) {
+            |        Mobile phone = new Mobile("Sandra");
+            |        phone.dial("555-1234");   // should print Sandra's phone is calling 555-1234
+            |    }
+            |}
+            |""".trimMargin(),
+        hint = "Inside dial, owner is this phone's owner and numberToCall is what was handed in:  System.out.println(owner + \"'s phone is calling \" + numberToCall);",
+        checks = listOf(
+            Check.Prints("new Mobile(\"Sandra\").dial(\"555-1234\")", "Sandra's phone is calling 555-1234", onClass = false, label = "Sandra dials 555-1234", why = "Use the owner field and the number that was handed in: owner + \"'s phone is calling \" + numberToCall"),
+            Check.Prints("new Mobile(\"Kim\").dial(\"800-555-0000\")", "Kim's phone is calling 800-555-0000", onClass = false, label = "Kim dials 800-555-0000"),
+        ),
+    ),
+    Drill(
+        "Counter", Topic.CLASSES, "Each object remembers",
+        task = "Finish click(): each click adds 1 to this counter's count. Every Counter object keeps its own count.",
+        signature = "public void click()",
+        starter = """
+            |public class Counter {
+            |
+            |    private int count;   // starts at 0
+            |
+            |    // Adds 1 to this counter's count.
+            |    public void click() {
+            |        // Your code here
+            |    }
+            |
+            |    public int getCount() {
+            |        return count;
+            |    }
+            |
+            |    // To try it yourself, press the green ▶ next to main.
+            |    // To test it, press "Check my answer" at the top of this file.
+            |    public static void main(String[] args) {
+            |        Counter a = new Counter();
+            |        Counter b = new Counter();
+            |        a.click();
+            |        a.click();
+            |        b.click();
+            |        System.out.println(a.getCount() + " and " + b.getCount());   // should print 2 and 1
+            |    }
+            |}
+            |""".trimMargin(),
+        hint = "count++; adds 1 to this object's count. The field keeps its value between calls, as long as the object exists.",
+        checks = listOf(
+            Check.Returns("new Counter().getCount()", "0", onClass = false, label = "a new counter"),
+            Check.Returns(steps("Counter c = new Counter();", "c.click();", "c.click();", result = "c.getCount()"), "2", onClass = false, label = "click twice, then getCount()", why = "click() should add 1 to the count: count++;"),
+            Check.Returns(steps("Counter a = new Counter();", "Counter b = new Counter();", "a.click();", "a.click();", "b.click();", result = "b.getCount()"), "1", onClass = false, label = "a clicked twice, b once: b's count", why = "Each object has its own count. If they share one, the field may say static: take static off."),
+        ),
+    ),
+
+    // ---------------------------------------------------------------- Overloading
+    Drill(
+        "AreaTwoWays", Topic.OVERLOADING, "Same name, different inputs",
+        task = "There's already area(width, height). Write a second method, also called area, that takes one number (a square's side) and gives back side times side.",
+        signature = "static int area(int side)",
+        starter = """
+            |public class AreaTwoWays {
+            |
+            |    // Done for you: the area of a rectangle.
+            |    static int area(int width, int height) {
+            |        return width * height;
+            |    }
+            |
+            |    // Your turn: write a second method, also called area, that takes ONE number
+            |    // (the side of a square) and gives back side times side.
+            |    // Its first line should be:
+            |    //     static int area(int side) {
+            |
+            |    // To try it yourself, press the green ▶ next to main.
+            |    // To test it, press "Check my answer" at the top of this file.
+            |    public static void main(String[] args) {
+            |        System.out.println(area(3, 4));   // should print 12
+            |        System.out.println(area(5));      // should print 25
+            |    }
+            |}
+            |""".trimMargin(),
+        hint = "Two methods can share a name when what's in their brackets is different. Write  static int area(int side) { return side * side; }  next to the first one.",
+        checks = listOf(
+            Check.Returns("area(5)", "25", why = "Java picks which area to run by what's in the brackets: area(5) has one number, so it runs your new method."),
+            Check.Returns("area(1)", "1"),
+            Check.Returns("area(3, 4)", "12", why = "Keep the first area method too. Both can live side by side because their brackets are different."),
+        ),
+    ),
+    Drill(
+        "Box", Topic.OVERLOADING, "Two constructors",
+        task = "new Box(3, 4) already works. Add a second constructor with empty brackets, so new Box() makes a 1 by 1 box.",
+        signature = "public Box()",
+        starter = """
+            |public class Box {
+            |
+            |    private int width;
+            |    private int height;
+            |
+            |    // Done for you: new Box(3, 4) makes a 3 by 4 box.
+            |    public Box(int width, int height) {
+            |        this.width = width;
+            |        this.height = height;
+            |    }
+            |
+            |    // Your turn: a second constructor with empty brackets.
+            |    // new Box() should make a 1 by 1 box.
+            |    // Its first line should be:
+            |    //     public Box() {
+            |
+            |    public int getArea() {
+            |        return width * height;
+            |    }
+            |
+            |    // To try it yourself, press the green ▶ next to main.
+            |    // To test it, press "Check my answer" at the top of this file.
+            |    public static void main(String[] args) {
+            |        System.out.println(new Box(3, 4).getArea());   // should print 12
+            |        System.out.println(new Box().getArea());       // should print 1
+            |    }
+            |}
+            |""".trimMargin(),
+        hint = "public Box() { this.width = 1; this.height = 1; }  A class can have more than one constructor, as long as their brackets are different.",
+        checks = listOf(
+            Check.Returns("new Box().getArea()", "1", onClass = false, why = "new Box() should set width and height to 1. If you don't set them, they stay 0 and the area is 0."),
+            Check.Returns("new Box(3, 4).getArea()", "12", onClass = false, why = "Keep the first constructor too: new Box(3, 4) should still make a 3 by 4 box."),
+        ),
+    ),
+
+    // ---------------------------------------------------------------- Loops
     Drill(
         "Countdown", Topic.LOOPS, "Countdown",
         task = "Give back a countdown from the number down to 1, then \"Go!\". For 3 that's \"3 2 1 Go!\".",
@@ -501,8 +934,48 @@ val DRILLS: List<Drill> = listOf(
             Check.Prints("timesTable(7)", "7 x 1 = 7\n7 x 2 = 14\n7 x 3 = 21\n7 x 4 = 28\n7 x 5 = 35"),
         ),
     ),
+    Drill(
+        "AskAgain", Topic.LOOPS, "Ask until it's right (do/while)",
+        task = "Keep reading whole numbers until one is from 1 to 10, then print Got and that number. A do/while fits: it always reads at least once, then checks.",
+        signature = "static void run(Scanner in)",
+        starter = fillIn(
+            "AskAgain", "Read numbers with in.nextInt() until one is from 1 to 10, then print \"Got \" and the number.",
+            "static void run(Scanner in)", null,
+            listOf("run(new Scanner(System.in));   // type 0, then 15, then 7 in the Run window"),
+            imports = "import java.util.Scanner;\n\n",
+        ),
+        hint = "int n;  do { n = in.nextInt(); } while (n < 1 || n > 10);  then  System.out.println(\"Got \" + n);",
+        checks = listOf(
+            Check.Prints("run(in)", "Got 7", input = "0\n15\n7\n", contains = true, label = "typing 0, 15, then 7", why = "Keep looping while the number is too small OR too big: while (n < 1 || n > 10);"),
+            Check.Prints("run(in)", "Got 5", input = "5\n", contains = true, label = "typing 5 straight away", why = "A good first number should be used right away. do/while reads once before it checks."),
+        ),
+    ),
+    Drill(
+        "FirstDigit", Topic.LOOPS, "Stop early (break)",
+        task = "Give back the position of the first digit (0 to 9) in the text, or -1 if there isn't one. Stop looking once you've found it.",
+        signature = "static int firstDigit(String text)",
+        starter = fillIn("FirstDigit", "\"abc4d5\" gives back 3 (the 4). \"none\" gives back -1.", "static int firstDigit(String text)", "-1", listOf(print("firstDigit(\"abc4d5\")") + "   // should print 3")),
+        hint = "int found = -1;  loop i from 0 to text.length() - 1. When Character.isDigit(text.charAt(i)) is true, set found = i; and break;",
+        checks = listOf(
+            Check.Returns("firstDigit(\"abc4d5\")", "3", why = "Give back the FIRST digit. If you got 5, the loop kept going: break out as soon as you find one."),
+            Check.Returns("firstDigit(\"7up\")", "0"),
+            Check.Returns("firstDigit(\"none\")", "-1", why = "When there's no digit, give back -1, the same way indexOf does."),
+        ),
+    ),
+    Drill(
+        "SkipThrees", Topic.LOOPS, "Skip some (continue)",
+        task = "Add up 1 to n, but skip the numbers 3 can divide (3, 6, 9...). For 10 that's 37.",
+        signature = "static int sumSkipThrees(int n)",
+        starter = fillIn("SkipThrees", "10 gives back 37: 1 + 2 + 4 + 5 + 7 + 8 + 10.", "static int sumSkipThrees(int n)", "0", listOf(print("sumSkipThrees(10)") + "   // should print 37")),
+        hint = "for (int i = 1; i <= n; i++) { if (i % 3 == 0) continue; total += i; }  continue jumps to the next round of the loop.",
+        checks = listOf(
+            Check.Returns("sumSkipThrees(10)", "37", why = "Skip the numbers where i % 3 == 0 (3, 6 and 9). If you got 3, you used break, which stops the whole loop; continue only skips one round."),
+            Check.Returns("sumSkipThrees(3)", "3"),
+            Check.Returns("sumSkipThrees(6)", "12"),
+        ),
+    ),
 
-    // ---------------------------------------------------------------- Arrays (coming up)
+    // ---------------------------------------------------------------- Arrays
     Drill(
         "ArrayTotal", Topic.ARRAYS, "Total of an array",
         task = "Give back all the numbers in the array added together.",
@@ -539,6 +1012,50 @@ val DRILLS: List<Drill> = listOf(
             Check.Returns("countAbove(new int[] {70, 71}, 70)", "1", label = "countAbove({70, 71}, 70)", why = "Above means more than: use >, not >=."),
         ),
     ),
-)
+    Drill(
+        "AverageScore", Topic.ARRAYS, "Average test score",
+        task = "Like Test Statistics: give back the average of the scores, with decimals. The array always has at least one score.",
+        signature = "static double average(int[] scores)",
+        starter = fillIn("AverageScore", "{90, 80, 70} gives back 80.0. {1, 2} gives back 1.5.", "static double average(int[] scores)", "0.0", listOf(print("average(new int[] {90, 80, 70})") + "   // should print 80.0")),
+        hint = "Add them up in a loop, then divide by scores.length. Put (double) in front of the total so Java keeps the decimals: (double) total / scores.length",
+        checks = listOf(
+            Check.Returns("average(new int[] {90, 80, 70})", "80.0", label = "average({90, 80, 70})"),
+            Check.Returns("average(new int[] {1, 2})", "1.5", label = "average({1, 2})", why = "If you got 1.0, Java divided whole numbers and dropped the .5. Use (double) total / scores.length."),
+            Check.Returns("average(new int[] {100})", "100.0", label = "average({100})"),
+        ),
+    ),
+    Drill(
+        "SortedCopy", Topic.ARRAYS, "Sort a copy",
+        task = "Give back a sorted copy of the numbers, smallest first. The array that came in must stay the way it was.",
+        signature = "static int[] sortedCopy(int[] numbers)",
+        starter = fillIn(
+            "SortedCopy", "{3, 1, 2} gives back {1, 2, 3}, and the {3, 1, 2} that came in stays {3, 1, 2}.",
+            "static int[] sortedCopy(int[] numbers)", "new int[0]",
+            listOf(print("Arrays.toString(sortedCopy(new int[] {3, 1, 2}))") + "   // should print [1, 2, 3]"),
+            imports = "import java.util.Arrays;\n\n",
+        ),
+        hint = "int[] copy = numbers; is NOT a copy: it's a second name for the same array. Make a real one with Arrays.copyOf(numbers, numbers.length), then Arrays.sort(copy); and return copy;",
+        checks = listOf(
+            Check.Returns("java.util.Arrays.toString(SortedCopy.sortedCopy(new int[] {3, 1, 2}))", "\"[1, 2, 3]\"", onClass = false, label = "sortedCopy({3, 1, 2})", why = "Arrays.sort(copy) puts the copy in order, smallest first."),
+            Check.Returns(
+                steps("int[] original = {3, 1, 2};", "SortedCopy.sortedCopy(original);", result = "java.util.Arrays.toString(original)"), "\"[3, 1, 2]\"",
+                onClass = false, label = "the array that came in stays {3, 1, 2}",
+                why = "int[] copy = numbers; doesn't copy anything: both names point to the same array, so sorting one sorts both. Make a real copy with Arrays.copyOf (or a new array and System.arraycopy).",
+            ),
+        ),
+    ),
+    Drill(
+        "FindName", Topic.ARRAYS, "Find a name",
+        task = "Give back the position of the name in the array, or -1 if it isn't there.",
+        signature = "static int find(String[] names, String target)",
+        starter = fillIn("FindName", "{\"Ann\", \"Bo\", \"Cy\"} and \"Bo\" gives back 1.", "static int find(String[] names, String target)", "-1", listOf(print("find(new String[] {\"Ann\", \"Bo\", \"Cy\"}, \"Bo\")") + "   // should print 1")),
+        hint = "Loop i from 0 to names.length - 1. When names[i].equals(target), return i. After the loop, return -1.",
+        checks = listOf(
+            Check.Returns("find(new String[] {\"Ann\", \"Bo\", \"Cy\"}, new String(\"Bo\"))", "1", label = "find({Ann, Bo, Cy}, \"Bo\")", why = "Compare text with equals, not ==: names[i].equals(target). == can say two equal names are different."),
+            Check.Returns("find(new String[] {\"Ann\", \"Bo\"}, \"Ann\")", "0", label = "find({Ann, Bo}, \"Ann\")"),
+            Check.Returns("find(new String[] {\"Ann\"}, \"Zed\")", "-1", label = "find({Ann}, \"Zed\")", why = "When the name isn't there, give back -1."),
+        ),
+    ),
+).sortedBy { it.topic.ordinal }
 
 fun drillFor(fileName: String): Drill? = DRILLS.firstOrNull { it.fileName == fileName }

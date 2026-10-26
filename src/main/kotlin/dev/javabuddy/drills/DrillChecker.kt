@@ -115,11 +115,12 @@ object DrillChecker {
     /** The hidden test class. Plain Java 8 so it compiles on any JDK the learner might use. */
     internal fun testSource(drill: Drill): String {
         val tests = drill.checks.mapIndexed { index, check ->
+            val call = if (check.onClass) "${drill.className}.${check.call}" else check.call
             when (check) {
                 is Check.Returns ->
-                    "        returns($index, ${check.expected}, new Call() { public Object call() throws Throwable { return ${drill.className}.${check.call}; } });"
+                    "        returns($index, ${check.expected}, new Call() { public Object call() throws Throwable { return $call; } });"
                 is Check.Prints ->
-                    "        prints($index, ${javaString(check.expected)}, ${javaString(check.input)}, ${check.contains}, new Body() { public void run(Scanner in) throws Throwable { ${drill.className}.${check.call}; } });"
+                    "        prints($index, ${javaString(check.expected)}, ${javaString(check.input)}, ${check.contains}, new Body() { public void run(Scanner in) throws Throwable { $call; } });"
             }
         }.joinToString("\n")
         return CHECK_TEMPLATE

@@ -6,6 +6,7 @@ enum class Topic(val title: String) {
     METHODS("Methods"),
     LOOPS("Choices and loops"),
     PROBLEMS("When things go wrong"),
+    TEXT("Text, numbers and dates"),
     VALUES("Kinds of values"),
     FILES("Setting up a file"),
 }
@@ -547,11 +548,171 @@ object Concepts {
         """,
     )
 
+    // ---------------------------------------------------------------- Workbook 2 ideas that aren't
+    // Java words: they open from names in the code (see IDENTIFIER_CARDS and ConceptFinder).
+
+    val DO_WHILE = Concept(
+        "do", Topic.LOOPS, "runs first, checks after",
+        "A do / while loop runs its { } once before it checks the test. So it always runs at least once, " +
+            "even when the test is false from the start. A plain while checks first, so it can run 0 times.",
+        """
+        int n;
+        do {
+            n = in.nextInt();             // runs once before any check
+        } while (n < 1 || n > 10);        // then repeats while it's wrong
+
+        int i = 5;
+        do { i++; } while (i < 5);        // runs 1 time
+        while (i < 5) { i++; }            // runs 0 times
+        """,
+        "Good for asking again until the answer is right. Note the ; after the while ( ).",
+    )
+    val CONSTRUCTOR = Concept(
+        "constructor", Topic.CLASSES, "sets up a new object",
+        "A constructor runs once, right when new makes the object. Its name is the class name, and it has no " +
+            "return type, not even void. It usually puts starting values into the fields.",
+        """
+        public class Pet {
+            private String name;
+
+            public Pet(String name) {     // no return type
+                this.name = name;
+            }
+        }
+
+        Pet rex = new Pet("Rex");         // runs the constructor
+        """,
+        "A class can have more than one constructor, as long as their brackets are different: Pet() and Pet(String name).",
+    )
+    val GETTERS_SETTERS = Concept(
+        "get / set", Topic.CLASSES, "the way in and out of private fields",
+        "Fields are usually private, so other code can't change them by accident. A getter gives a field's value " +
+            "back (getName). A setter puts a new value in (setName). Other code uses these instead of the field.",
+        """
+        private String owner;
+
+        public String getOwner() {        // getter: gives it back
+            return owner;
+        }
+
+        public void setOwner(String owner) {  // setter: puts it in
+            this.owner = owner;
+        }
+
+        phone.setOwner("Sandra");
+        phone.getOwner();                 // "Sandra"
+        """,
+        "Getters have no ( ) values and return something. Setters take one value and are void.",
+    )
+    val OVERLOADING = Concept(
+        "overloading", Topic.METHODS, "same name, different inputs",
+        "Two methods can have the same name if what's in their brackets is different: a different number of values, " +
+            "different types, or a different order. Java picks which one to run from what you put in the brackets.",
+        """
+          static int area(int side) { ... }
+          static int area(int width, int height) { ... }
+
+          area(5);       // runs the first one
+          area(3, 4);    // runs the second one
+
+        ✗ static int area(int s) { ... }      // only the name in ( ) is different
+        ✗ static double area(int side) { ... } // only the return type is different
+        """,
+        "Only the types in the brackets count. Changing a parameter's name or the return type isn't enough.",
+    )
+    val SUBSTRING = Concept(
+        "substring", Topic.TEXT, "a piece of text",
+        "substring(start, end) gives back the letters from start up to, but not including, end. Letters are counted from 0. " +
+            "With only start, it goes to the end. indexOf finds where something is (-1 if it's not there).",
+        """
+        String code = "ACME-12213";
+        int dash = code.indexOf("-");     // 4
+        code.substring(0, dash);          // "ACME"  (stops before the dash)
+        code.substring(dash + 1);         // "12213" (to the end)
+        "Pizza".substring(1, 4);          // "izz"   (4 - 1 = 3 letters)
+        """,
+        "end - start is how many letters you get.",
+    )
+    val SPLIT = Concept(
+        "split", Topic.TEXT, "cut text into an array",
+        "split cuts text into pieces wherever it finds the divider and gives back an array of the pieces. " +
+            "Some symbols, like | and ., are special to split and need \\\\ in front of them.",
+        """
+          String[] parts = "Dana L. Wyatt".split(" ");
+          parts[0];                        // "Dana"
+          parts[parts.length - 1];         // "Wyatt"
+
+        ✗ line.split("|")                  // cuts between every letter
+        ✓ line.split("\\|")                // cuts at each |
+        """,
+        "Use trim() first, so extra spaces at the ends don't make empty pieces.",
+    )
+    val PARSE = Concept(
+        "parseInt", Topic.TEXT, "turn text into a number",
+        "Text that looks like a number is still text: you can't do math with \"21\". Integer.parseInt turns it into an int, " +
+            "and Double.parseDouble into a double.",
+        """
+        int quantity = Integer.parseInt("21");      // 21
+        double price = Double.parseDouble("4.99");  // 4.99
+        quantity * price;                            // 104.79
+
+        Integer.parseInt("4.99");   // crashes: not a whole number
+        Integer.parseInt(" 21");    // crashes: the space
+        """,
+        "trim() the text first. If a person typed it, it might not be a number at all.",
+    )
+    val STRING_BUILDER = Concept(
+        "StringBuilder", Topic.TEXT, "text you can keep adding to",
+        "A String can't change: every + makes a brand-new String. A StringBuilder is one piece of text you keep adding to " +
+            "with append. When it's done, toString() gives you a normal String.",
+        """
+        StringBuilder label = new StringBuilder();
+        label.append("Dana Wyatt").append("\n");
+        label.append("Dallas, TX");
+        String text = label.toString();
+
+        new StringBuilder("abc").reverse().toString();   // "cba"
+        """,
+        "Use it when you build text bit by bit, like in a loop.",
+    )
+    val DATES = Concept(
+        "LocalDate", Topic.TEXT, "a date, made from text",
+        "LocalDate holds a date (no time). LocalDate.parse reads year-month-day text on its own. For other shapes, like " +
+            "10/17/2022, give it a DateTimeFormatter that describes the shape.",
+        """
+          LocalDate a = LocalDate.parse("2022-10-17");
+
+          DateTimeFormatter f = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+          LocalDate b = LocalDate.parse("10/17/2022", f);
+          b.getYear();                     // 2022
+
+        ✗ DateTimeFormatter.ofPattern("mm/dd/yyyy")   // mm is minutes
+        """,
+        "Capital MM is the month, small mm is minutes. dd is the day, yyyy the year.",
+    )
+    val ARRAYS_HELPERS = Concept(
+        "Arrays", Topic.VALUES, "sort, copy and fill arrays",
+        "Arrays has ready-made helpers for arrays. To copy an array you need a new array: writing b = a only gives " +
+            "the same array a second name, so changing one changes both.",
+        """
+          int[] a = {3, 1, 2};
+          int[] copy = Arrays.copyOf(a, a.length);   // a real copy
+          Arrays.sort(copy);                         // copy is {1, 2, 3}, a is still {3, 1, 2}
+          Arrays.toString(copy);                     // "[1, 2, 3]"
+          System.arraycopy(a, 0, copy, 0, 3);        // copy 3 boxes from a into copy
+
+        ✗ int[] b = a;                               // NOT a copy: same array, two names
+        """,
+        "Needs import java.util.Arrays; at the top.",
+    )
+
     val ALL: List<Concept> = listOf(
         CLASS, NEW, THIS, PUBLIC, PRIVATE, PROTECTED, FINAL, EXTENDS, SUPER,
         INTERFACE, IMPLEMENTS, ABSTRACT, ENUM, RECORD, OVERRIDE, GENERICS,
         STATIC, VOID, RETURN, PARAMETERS,
-        IF, FOR, WHILE, SWITCH, BREAK, CONTINUE,
+        CONSTRUCTOR, GETTERS_SETTERS, OVERLOADING,
+        IF, FOR, WHILE, DO_WHILE, SWITCH, BREAK, CONTINUE,
+        SUBSTRING, SPLIT, PARSE, STRING_BUILDER, DATES, ARRAYS_HELPERS,
         TRY, THROW, THROWS,
         INT, LONG, DOUBLE, BOOLEAN, CHAR, STRING, ARRAY, NULL, VAR, INSTANCEOF,
         IMPORT, PACKAGE,
@@ -563,10 +724,31 @@ object Concepts {
         "protected" to PROTECTED, "static" to STATIC, "final" to FINAL, "void" to VOID, "return" to RETURN,
         "extends" to EXTENDS, "super" to SUPER, "interface" to INTERFACE, "implements" to IMPLEMENTS,
         "abstract" to ABSTRACT, "enum" to ENUM, "record" to RECORD,
-        "if" to IF, "else" to IF, "for" to FOR, "while" to WHILE, "do" to WHILE, "switch" to SWITCH, "case" to SWITCH,
+        "if" to IF, "else" to IF, "for" to FOR, "while" to WHILE, "do" to DO_WHILE, "switch" to SWITCH, "case" to SWITCH,
         "break" to BREAK, "continue" to CONTINUE,
         "try" to TRY, "catch" to TRY, "finally" to TRY, "throw" to THROW, "throws" to THROWS,
         "int" to INT, "long" to LONG, "double" to DOUBLE, "boolean" to BOOLEAN, "char" to CHAR, "null" to NULL,
         "var" to VAR, "instanceof" to INSTANCEOF, "import" to IMPORT, "package" to PACKAGE,
+    )
+
+    /** Class names (as typed in code) and the card each one opens. */
+    val BY_CLASS_NAME: Map<String, Concept> = mapOf(
+        "StringBuilder" to STRING_BUILDER, "LocalDate" to DATES, "DateTimeFormatter" to DATES, "Arrays" to ARRAYS_HELPERS,
+    )
+
+    /**
+     * Method names, where they're called, and the card each one opens. A non-null [CallCard.on] means
+     * only when called on that class, like Integer.parseInt; null means on any text, like name.substring(...).
+     */
+    data class CallCard(val concept: Concept, val on: Set<String>? = null)
+
+    val BY_CALL: Map<String, CallCard> = mapOf(
+        "substring" to CallCard(SUBSTRING), "indexOf" to CallCard(SUBSTRING), "split" to CallCard(SPLIT),
+        "parseInt" to CallCard(PARSE, setOf("Integer")), "parseDouble" to CallCard(PARSE, setOf("Double")),
+        "parseFloat" to CallCard(PARSE, setOf("Float")), "parseLong" to CallCard(PARSE, setOf("Long")),
+        "append" to CallCard(STRING_BUILDER),
+        "parse" to CallCard(DATES, setOf("LocalDate")), "ofPattern" to CallCard(DATES, setOf("DateTimeFormatter")),
+        "sort" to CallCard(ARRAYS_HELPERS, setOf("Arrays")), "copyOf" to CallCard(ARRAYS_HELPERS, setOf("Arrays")),
+        "fill" to CallCard(ARRAYS_HELPERS, setOf("Arrays")), "arraycopy" to CallCard(ARRAYS_HELPERS, setOf("System")),
     )
 }

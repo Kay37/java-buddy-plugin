@@ -493,12 +493,39 @@ val CRASH_RULES: List<Rule> = listOf(
     },
     Rule("""^java\.lang\.NumberFormatException: (?:For input string: "(.*)"|(.*))(?: under radix \d+)?$""") { m ->
         val input = m.groupValues[1]
+        // A lone | almost always comes from split("|"), which cuts between every letter.
+        if (input == "|") return@Rule Explanation(
+            title = "\"|\" isn't a number: check your split",
+            meaning = "The text being turned into a number is just \"|\". That usually means the line was cut with split(\"|\"). " +
+                "To split, | is a special symbol, so split(\"|\") cuts between every single letter instead of at each |.",
+            fix = "Put \\\\ in front of the |: split(\"\\\\|\"). Then each piece between the | marks is one part.",
+            example = "✗ String[] parts = line.split(\"|\");     // cuts between every letter\n✓ String[] parts = line.split(\"\\\\|\");   // cuts at each |",
+        )
         Explanation(
             title = if (input.isNotEmpty()) "\"$input\" isn't a number" else "This text isn't a number",
             meaning = "Integer.parseInt (or Double.parseDouble) was given text that isn't a plain number" +
                 (if (input.isNotEmpty()) ": \"$input\"." else ".") + " Spaces, letters, commas and empty text all break it.",
             fix = "Remove extra spaces with text.trim() first. If a person types the value, check it, or catch the error and ask again.",
             example = "✓ try {\n      int age = Integer.parseInt(text.trim());\n  } catch (NumberFormatException e) {\n      System.out.println(\"Please type a number\");\n  }",
+        )
+    },
+    Rule("""^java\.time\.format\.DateTimeParseException: Text '(.*?)' could not be parsed(.*)$""") { m ->
+        val text = m.groupValues[1]
+        val rest = m.groupValues[2]
+        val why = when {
+            "Unable to obtain" in rest ->
+                " The pattern doesn't say where the month is. Small mm means minutes; the month is capital MM."
+            "Invalid value" in rest ->
+                " One part is out of range, like month 13 or day 32."
+            else ->
+                " Without a formatter, LocalDate.parse only reads year-month-day, like 2022-10-17. This text has a different shape, or a typo."
+        }
+        Explanation(
+            title = "\"$text\" couldn't be read as a date",
+            meaning = "LocalDate.parse couldn't turn this text into a date.$why",
+            fix = "For dates like 10/17/2022, give LocalDate.parse a formatter: DateTimeFormatter.ofPattern(\"MM/dd/yyyy\"). " +
+                "Capital MM is the month, dd the day and yyyy the year.",
+            example = "✓ DateTimeFormatter f = DateTimeFormatter.ofPattern(\"MM/dd/yyyy\");\n  LocalDate day = LocalDate.parse(\"10/17/2022\", f);\n\n✗ DateTimeFormatter.ofPattern(\"mm/dd/yyyy\")   // mm is minutes",
         )
     },
     Rule("""^java\.util\.InputMismatchException.*$""") {

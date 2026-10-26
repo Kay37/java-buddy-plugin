@@ -49,6 +49,9 @@ val IDEAS: List<Idea> = listOf(
     idea("scanner", "Reading input (Scanner)", IdeaGroup.TEXT, """new\s+Scanner\s*\(""", drills = DrillTopic.INPUT),
     idea("printf", "printf and String.format", IdeaGroup.TEXT, """\.printf\s*\(|String\.format\s*\(""", drills = DrillTopic.INPUT),
     idea("textBlock", "Text blocks (\"\"\")", IdeaGroup.TEXT, "\"\"\"", raw = true),
+    idea("parse", "Text into numbers (parseInt)", IdeaGroup.TEXT, """\b(Integer\.parseInt|Double\.parseDouble|Float\.parseFloat|Long\.parseLong)\s*\(""", Concepts.PARSE, DrillTopic.CONVERTING),
+    idea("dates", "Dates (LocalDate)", IdeaGroup.TEXT, """\bLocalDate\.(parse|of|now)\s*\(|\bDateTimeFormatter\.ofPattern\s*\(""", Concepts.DATES, DrillTopic.CONVERTING),
+    idea("stringBuilder", "StringBuilder", IdeaGroup.TEXT, """new\s+StringBuilder\s*\(""", Concepts.STRING_BUILDER, DrillTopic.BUILDER),
 
     idea("if", "if", IdeaGroup.CHOICES, """\bif\s*\(""", Concepts.IF, DrillTopic.DECISIONS),
     idea("else", "else", IdeaGroup.CHOICES, """\belse\b""", Concepts.IF, DrillTopic.DECISIONS),
@@ -59,21 +62,25 @@ val IDEAS: List<Idea> = listOf(
     idea("parameters", "Methods with parameters", IdeaGroup.METHODS, """^\s*(public\s+|private\s+|protected\s+)?(static\s+)?[\w<>\[\]]+\s+(?!main\s*\()\w+\s*\(\s*[\w<>\[\]]+\s+\w+""", Concepts.PARAMETERS, DrillTopic.STATIC),
     idea("return", "Giving back a value (return)", IdeaGroup.METHODS, """\breturn\s+[^;\s]""", Concepts.RETURN, DrillTopic.STATIC),
     idea("void", "void methods", IdeaGroup.METHODS, """\bvoid\s+(?!main\s*\()\w+\s*\(""", Concepts.VOID, DrillTopic.STATIC),
+    // Found by ProgressScanner (two methods with one name in the same file), not line by line: (?!) never matches a line.
+    idea("overloading", "Overloading (same name, different inputs)", IdeaGroup.METHODS, """(?!)""", Concepts.OVERLOADING, DrillTopic.OVERLOADING),
 
     idea("for", "for loops", IdeaGroup.LOOPS, """\bfor\s*\(\s*(int|var|long)\s+\w+\s*=""", Concepts.FOR, DrillTopic.LOOPS),
     idea("forEach", "for-each loops", IdeaGroup.LOOPS, """\bfor\s*\(\s*(final\s+)?[\w<>\[\]]+\s+\w+\s*:""", Concepts.FOR, DrillTopic.LOOPS),
     idea("while", "while loops", IdeaGroup.LOOPS, """\bwhile\s*\(""", Concepts.WHILE, DrillTopic.LOOPS),
-    idea("break", "break and continue", IdeaGroup.LOOPS, """\b(break|continue)\s*;""", Concepts.BREAK),
+    idea("doWhile", "do / while loops", IdeaGroup.LOOPS, """\bdo\s*\{""", Concepts.DO_WHILE, DrillTopic.LOOPS),
+    idea("break", "break and continue", IdeaGroup.LOOPS, """\b(break|continue)\s*;""", Concepts.BREAK, DrillTopic.LOOPS),
 
     idea("array", "Arrays", IdeaGroup.DATA, """[\w>]\s*\[\s*]\s+\w+\s*[=;]|new\s+\w+\s*\[""", Concepts.ARRAY, DrillTopic.ARRAYS),
+    idea("arraysHelpers", "Sorting and copying arrays", IdeaGroup.DATA, """\bArrays\.(sort|copyOf|copyOfRange|fill|equals|binarySearch)\s*\(|\bSystem\.arraycopy\s*\(""", Concepts.ARRAYS_HELPERS, DrillTopic.ARRAYS),
     idea("arrayList", "ArrayList", IdeaGroup.DATA, """new\s+ArrayList\s*<""", Concepts.GENERICS),
     idea("map", "HashMap", IdeaGroup.DATA, """new\s+(Hash|Tree|LinkedHash)Map\s*<""", Concepts.GENERICS),
 
-    idea("newObject", "Making objects (new)", IdeaGroup.OBJECTS, """new\s+(?!(Scanner|ArrayList|HashMap|TreeMap|LinkedHashMap|HashSet|Random|String|StringBuilder|File|FileReader|FileWriter|BufferedReader|BufferedWriter|PrintWriter|IllegalArgumentException|RuntimeException|Exception)\b)[A-Z]\w*\s*\(""", Concepts.NEW),
-    idea("privateField", "Private fields", IdeaGroup.OBJECTS, """^\s*private\s+(?!static\b)(final\s+)?[\w<>\[\]]+\s+\w+\s*[;=]""", Concepts.PRIVATE),
-    idea("constructor", "Constructors", IdeaGroup.OBJECTS, """^\s*public\s+[A-Z]\w*\s*\([^)]*\)\s*\{?\s*$"""),
-    idea("this", "this", IdeaGroup.OBJECTS, """\bthis\.\w+""", Concepts.THIS),
-    idea("getter", "Getters and setters", IdeaGroup.OBJECTS, """\b(get|set|is)[A-Z]\w*\s*\([^)]*\)\s*\{"""),
+    idea("newObject", "Making objects (new)", IdeaGroup.OBJECTS, """new\s+(?!(Scanner|ArrayList|HashMap|TreeMap|LinkedHashMap|HashSet|Random|String|StringBuilder|File|FileReader|FileWriter|BufferedReader|BufferedWriter|PrintWriter|IllegalArgumentException|RuntimeException|Exception)\b)[A-Z]\w*\s*\(""", Concepts.NEW, DrillTopic.CLASSES),
+    idea("privateField", "Private fields", IdeaGroup.OBJECTS, """^\s*private\s+(?!static\b)(final\s+)?[\w<>\[\]]+\s+\w+\s*[;=]""", Concepts.PRIVATE, DrillTopic.CLASSES),
+    idea("constructor", "Constructors", IdeaGroup.OBJECTS, """^\s*public\s+[A-Z]\w*\s*\([^)]*\)\s*\{?\s*$""", drills = DrillTopic.CLASSES),
+    idea("this", "this", IdeaGroup.OBJECTS, """\bthis\.\w+""", Concepts.THIS, DrillTopic.CLASSES),
+    idea("getter", "Getters and setters", IdeaGroup.OBJECTS, """\b(get|set|is)[A-Z]\w*\s*\([^)]*\)\s*\{""", drills = DrillTopic.CLASSES),
     idea("extends", "Inheritance (extends)", IdeaGroup.OBJECTS, """\bclass\s+\w+\s+extends\s+\w+""", Concepts.EXTENDS),
     idea("interface", "Interfaces", IdeaGroup.OBJECTS, """\binterface\s+\w+|\bimplements\s+\w+""", Concepts.INTERFACE),
     idea("override", "@Override", IdeaGroup.OBJECTS, """@Override\b""", Concepts.OVERRIDE),
@@ -93,4 +100,28 @@ fun ideasIn(line: String): List<Idea> {
     if (trimmed.startsWith("*") || trimmed.startsWith("/*")) return emptyList()
     val code = LINE_COMMENT.replace(STRING_LITERAL.replace(line, "\"\""), "")
     return IDEAS.filter { idea -> idea.pattern.containsMatchIn(if (idea.raw) line else code) }
+}
+
+/**
+ * A method being made on this line, like "static int area(int side) {": group 1 is the return type,
+ * group 2 the name. Calls end in ; so they don't match.
+ */
+private val METHOD_MADE = Regex("""^\s*(?:(?:public|private|protected|static|final|abstract)\s+)*([\w<>\[\],]+)\s+(\w+)\s*\([^;]*$""")
+
+/** A constructor being made on this line, like "public Box(int width, int height) {"; group 1 is its name. */
+private val CONSTRUCTOR_MADE = Regex("""^\s*(?:public|private|protected)\s+([A-Z]\w*)\s*\([^;]*$""")
+
+/** Words that look like a return type or a name in METHOD_MADE but mean the line isn't making a method. */
+private val NOT_METHODS = setOf("if", "for", "while", "switch", "catch", "synchronized", "return", "new", "else", "throw", "case")
+
+/**
+ * The name of the method or constructor made on this line, or null. Used to spot overloading: the
+ * same name made twice in one file. main is left out, since nobody overloads it by choice.
+ */
+fun methodMadeIn(line: String): String? {
+    val code = LINE_COMMENT.replace(STRING_LITERAL.replace(line, "\"\""), "")
+    CONSTRUCTOR_MADE.find(code)?.let { return it.groupValues[1] }
+    val m = METHOD_MADE.find(code) ?: return null
+    val (type, name) = m.destructured
+    return name.takeIf { it != "main" && it !in NOT_METHODS && type !in NOT_METHODS }
 }
