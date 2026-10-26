@@ -22,7 +22,7 @@ One plugin, five tools, built in this order, each as a tab in the Java Buddy sid
 
 - **Maven, not Gradle.** The user chose this knowingly; don't suggest switching.
 - **The user's classes use JDK 17** (Amazon Corretto 17). The playground, drills and code examples
-  target Java 17; don't use newer language features in them. (The plugin itself still builds with JDK 21.)
+  target Java 17; don't use newer language features in them. (The plugin itself builds with IntelliJ's own Java, jvmTarget 21.)
 - **Explain in plain, ELI5 terms, in the chat itself.** Don't bury explanations between tool calls.
 - **Plugin wording level:** match `errors/Explanations.kt` (approved 2026-10-18). Short sentences,
   everyday words ("made", not "declared"; "put (int) in front", not "cast"), and a few words in
@@ -73,10 +73,11 @@ Adopted from the user's DHARMA Initiative project (2026-10-18), trimmed to what 
 
 ## Build & run
 
-There is no `mvn` on PATH and no `JAVA_HOME`; use IntelliJ's bundled Maven with JDK 21:
+There is no `mvn` on PATH and no `JAVA_HOME`; use IntelliJ's bundled Maven with IntelliJ's own Java (`jbr`, JDK 25). The old
+`C:\Program Files\Java\jdk-21` is no longer installed (2026-10-26):
 
 ```bash
-export JAVA_HOME="/c/Program Files/Java/jdk-21"
+export JAVA_HOME="/c/Program Files/JetBrains/IntelliJ IDEA 2026.2.3/jbr"
 MVN="/c/Program Files/JetBrains/IntelliJ IDEA 2026.2.3/plugins/maven-plugin/lib/maven3/bin/mvn"
 "$MVN" -B -ntp -q compile                    # quick compile check
 "$MVN" -B -ntp -q package exec:exec@run-ide  # build, install into sandbox, launch test IDE
@@ -108,7 +109,7 @@ There are no sources; inspect the installed jars with `javap` (Windows paths via
 ```bash
 IDE="/c/Program Files/JetBrains/IntelliJ IDEA 2026.2.3"
 CP="$(for j in "$IDE/plugins/vcs-git/lib/vcs-git.jar" "$IDE"/lib/intellij.platform.vcs*.jar; do printf '%s;' "$(cygpath -w "$j")"; done)"
-"/c/Program Files/Java/jdk-21/bin/javap.exe" -cp "$CP" git4idea.branch.GitBrancher
+"/c/Users/kimba/.jdks/corretto-17.0.20.1/bin/javap.exe" -cp "$CP" git4idea.branch.GitBrancher
 ```
 
 To find which jar holds a class: loop over `"$IDE"/lib/*.jar` with `unzip -l | grep 'path/Name.class'`.
